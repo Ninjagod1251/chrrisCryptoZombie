@@ -388,8 +388,10 @@
 
     levelupButton.addEventListener('click', () => {
       getZombiesByOwner(userAccount)
-            .then(levelUp);
-
+            .then(ids => {
+              if (ids.length === 0) { setStatus("You have no zombies to level up!", true); return; }
+              levelUp(ids[0]);
+            });
     });
 
 
