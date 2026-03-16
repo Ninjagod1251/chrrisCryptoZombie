@@ -211,55 +211,200 @@
     const createzombieButton = document.querySelector('.createzombieButton');
     const levelupButton     = document.querySelector('.levelupButton');
 
-    // ── Step 6: Generate zombie avatar SVG from DNA ──────────────────────────
+    // ── Step 6: PvZ-style zombie avatar from DNA ─────────────────────────────
     function generateZombieAvatar(dna, level) {
-      const d = dna.toString().padStart(16, '0');
-      const skinHue   = 100 + (parseInt(d.slice(0,2)) % 40);   // greenish skin
-      const eyeHue    = parseInt(d.slice(2,4))  * 3.6;
-      const shirtHue  = parseInt(d.slice(4,6))  * 3.6;
-      const hairHue   = parseInt(d.slice(6,8))  * 3.6;
-      const bgHue     = parseInt(d.slice(8,10)) * 3.6;
-      const skinL     = 30 + (parseInt(d.slice(10,12)) % 20);
-      const eyeType   = parseInt(d.slice(12,14)) % 3; // 0=normal 1=wide 2=small
-      const mouthType = parseInt(d.slice(14,16)) % 3; // 0=grin 1=flat 2=frown
+      const d        = dna.toString().padStart(16, '0');
+      const typeIdx  = parseInt(d.slice(0,2)) % 7;   // 7 zombie types
+      const skinVar  = parseInt(d.slice(2,4))  % 4;  // skin shade variation
+      const eyeVar   = parseInt(d.slice(4,6))  % 3;  // 0=open 1=droopy 2=X
+      const tieColor = ['#cc2222','#2255cc','#228822','#cc8800','#882288'][parseInt(d.slice(6,8)) % 5];
+      const bgColors = ['#1a3a1a','#1a1a3a','#2a1a0a','#0a2a2a','#2a0a2a'];
+      const bg       = bgColors[parseInt(d.slice(8,10)) % 5];
 
-      const skin  = `hsl(${skinHue},55%,${skinL}%)`;
-      const eye   = `hsl(${eyeHue},80%,60%)`;
-      const shirt = `hsl(${shirtHue},45%,28%)`;
-      const hair  = `hsl(${hairHue},40%,22%)`;
-      const bg    = `hsl(${bgHue},25%,10%)`;
+      // Skin tones: pale green to grayish (classic PvZ palette)
+      const skins = ['hsl(110,25%,62%)','hsl(105,20%,58%)','hsl(100,18%,55%)','hsl(95,15%,52%)'];
+      const skin  = skins[skinVar];
+      const dark  = skins[Math.min(skinVar+1,3)];
 
-      const eyeRy = eyeType === 1 ? 7 : eyeType === 2 ? 4 : 5.5;
-      const mouthD = mouthType === 0
-        ? `M 37 68 Q 50 76 63 68`
-        : mouthType === 1
-        ? `M 37 68 L 63 68`
-        : `M 37 72 Q 50 64 63 72`;
+      // Level indicator label
+      const lvlStr = level >= 5 ? '⭐ Lv'+level : 'Lv'+level;
 
-      const stitches = level > 2
-        ? `<line x1="44" y1="36" x2="56" y2="36" stroke="#ff4444" stroke-width="1.5"/>
-           <line x1="50" y1="33" x2="50" y2="39" stroke="#ff4444" stroke-width="1.5"/>`
-        : '';
-      const crown = level >= 5
-        ? `<polygon points="50,8 44,18 38,14 42,22 58,22 62,14 56,18" fill="#ffd700"/>`
-        : '';
+      // Base zombie body (shared by all types) — PvZ proportions
+      function base(hat, extraBody='') {
+        // Eye rendering
+        const leftEye  = eyeVar === 2
+          ? `<line x1="28" y1="34" x2="36" y2="42" stroke="#333" stroke-width="2.5"/>
+             <line x1="36" y1="34" x2="28" y2="42" stroke="#333" stroke-width="2.5"/>`
+          : `<ellipse cx="32" cy="38" rx="6" ry="${eyeVar===1?3:5}" fill="white"/>
+             <circle  cx="32" cy="${eyeVar===1?39:38}" r="3" fill="#222"/>
+             <circle  cx="31" cy="${eyeVar===1?38:37}" r="1" fill="white"/>`;
+        const rightEye = eyeVar === 2
+          ? `<line x1="50" y1="34" x2="58" y2="42" stroke="#333" stroke-width="2.5"/>
+             <line x1="58" y1="34" x2="50" y2="42" stroke="#333" stroke-width="2.5"/>`
+          : `<ellipse cx="54" cy="38" rx="6" ry="5" fill="white"/>
+             <circle  cx="54" cy="38" r="3" fill="#222"/>
+             <circle  cx="53" cy="37" r="1" fill="white"/>`;
 
-      return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100" height="100" fill="${bg}" rx="8"/>
-        <rect x="28" y="66" width="44" height="34" fill="${shirt}" rx="4"/>
-        <rect x="43" y="57" width="14" height="14" fill="${skin}"/>
-        <ellipse cx="50" cy="44" rx="26" ry="28" fill="${skin}"/>
-        <ellipse cx="50" cy="18" rx="26" ry="10" fill="${hair}"/>
-        ${crown}
-        <ellipse cx="38" cy="42" rx="7" ry="${eyeRy}" fill="white"/>
-        <circle cx="38" cy="42" r="4" fill="${eye}"/>
-        <circle cx="38" cy="42" r="2" fill="#111"/>
-        <ellipse cx="62" cy="42" rx="7" ry="${eyeRy}" fill="white"/>
-        <circle cx="62" cy="42" r="4" fill="${eye}"/>
-        <circle cx="62" cy="42" r="2" fill="#111"/>
-        ${stitches}
-        <path d="${mouthD}" stroke="#00ff88" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      </svg>`;
+        // Stitches appear on level 3+
+        const stitch = level >= 3
+          ? `<line x1="40" y1="28" x2="48" y2="28" stroke="#cc0000" stroke-width="1.5"/>
+             <line x1="44" y1="25" x2="44" y2="31" stroke="#cc0000" stroke-width="1.5"/>` : '';
+
+        return `<svg viewBox="0 0 86 110" xmlns="http://www.w3.org/2000/svg">
+          <!-- background -->
+          <rect width="86" height="110" fill="${bg}" rx="6"/>
+
+          <!-- left arm outstretched -->
+          <rect x="2"  y="62" width="14" height="8" fill="${skin}" rx="3" transform="rotate(-10,9,66)"/>
+          <rect x="-4" y="59" width="10" height="7" fill="${dark}" rx="2" transform="rotate(-15,1,62)"/>
+
+          <!-- right arm outstretched -->
+          <rect x="70" y="62" width="14" height="8" fill="${skin}" rx="3" transform="rotate(10,77,66)"/>
+          <rect x="76" y="59" width="10" height="7" fill="${dark}" rx="2" transform="rotate(15,81,62)"/>
+
+          <!-- body / suit -->
+          <rect x="22" y="70" width="42" height="40" fill="#3a4a6a" rx="4"/>
+          <!-- shirt white -->
+          <rect x="36" y="70" width="14" height="30" fill="#e8e8e0" rx="2"/>
+          <!-- tie -->
+          <polygon points="43,72 40,82 43,95 46,82" fill="${tieColor}"/>
+          <!-- suit lapels -->
+          <polygon points="36,70 28,78 36,85" fill="#2a3a5a"/>
+          <polygon points="50,70 58,78 50,85" fill="#2a3a5a"/>
+          <!-- buttons -->
+          <circle cx="43" cy="98"  r="1.5" fill="#555"/>
+          <circle cx="43" cy="103" r="1.5" fill="#555"/>
+
+          <!-- neck -->
+          <rect x="38" y="62" width="10" height="12" fill="${skin}"/>
+
+          <!-- head -->
+          <ellipse cx="43" cy="40" rx="24" ry="26" fill="${skin}"/>
+          <!-- jaw darker -->
+          <ellipse cx="43" cy="56" rx="16" ry="8" fill="${dark}"/>
+
+          <!-- ear left -->
+          <ellipse cx="19" cy="40" rx="4" ry="6" fill="${dark}"/>
+          <!-- ear right -->
+          <ellipse cx="67" cy="40" rx="4" ry="6" fill="${dark}"/>
+
+          <!-- eyes -->
+          ${leftEye}
+          ${rightEye}
+
+          <!-- nose -->
+          <ellipse cx="43" cy="46" rx="3" ry="2" fill="${dark}"/>
+
+          <!-- mouth / teeth -->
+          <rect x="30" y="52" width="26" height="8"  fill="#1a0a0a" rx="3"/>
+          <rect x="32" y="52" width="5"  height="6"  fill="#e0ddd0" rx="1"/>
+          <rect x="39" y="52" width="5"  height="7"  fill="#e0ddd0" rx="1"/>
+          <rect x="46" y="52" width="4"  height="6"  fill="#e0ddd0" rx="1"/>
+          <rect x="52" y="52" width="3"  height="5"  fill="#ccc9bc" rx="1"/>
+
+          ${stitch}
+          ${hat}
+          ${extraBody}
+
+          <!-- level label -->
+          <rect x="2" y="2" width="34" height="12" fill="#00000066" rx="3"/>
+          <text x="5" y="11" font-size="7" fill="#00ff88" font-family="monospace">${lvlStr}</text>
+        </svg>`;
+      }
+
+      // ── 7 zombie types ───────────────────────────────────────────────────
+      const types = [
+        // 0: Regular — messy dark hair
+        () => base(`<ellipse cx="43" cy="16" rx="24" ry="10" fill="#2a2015"/>
+                    <rect x="19" y="12" width="48" height="8" fill="#2a2015" rx="2"/>`),
+
+        // 1: Cone zombie — orange traffic cone
+        () => base(`<polygon points="43,2 28,22 58,22" fill="#e06010"/>
+                    <polygon points="43,4 30,21 56,21" fill="#f07820"/>
+                    <rect x="26" y="20" width="34" height="5" fill="#e06010" rx="1"/>
+                    <line x1="30" y1="16" x2="56" y2="16" stroke="white" stroke-width="1.5"/>
+                    <line x1="33" y1="10" x2="53" y2="10" stroke="white" stroke-width="1"/>`),
+
+        // 2: Bucket zombie — metal bucket
+        () => base(`<rect x="20" y="8"  width="46" height="22" fill="#888" rx="3"/>
+                    <rect x="18" y="8"  width="50" height="5"  fill="#aaa" rx="2"/>
+                    <rect x="20" y="13" width="46" height="3"  fill="#999"/>
+                    <rect x="20" y="19" width="46" height="3"  fill="#999"/>
+                    <rect x="22" y="25" width="42" height="5"  fill="#777" rx="1"/>
+                    <ellipse cx="43" cy="8" rx="25" ry="4" fill="#bbb"/>`),
+
+        // 3: Flag zombie — holding flag pole
+        () => base(
+          `<ellipse cx="43" cy="16" rx="24" ry="10" fill="#1a120a"/>`,
+          `<!-- flag pole -->
+           <rect x="68" y="20" width="3" height="55" fill="#8B6914"/>
+           <!-- flag -->
+           <rect x="71" y="20" width="22" height="14" fill="#cc2222"/>
+           <rect x="71" y="20" width="22" height="5"  fill="#cc2222"/>
+           <rect x="71" y="25" width="22" height="4"  fill="white"/>
+           <rect x="71" y="29" width="22" height="5"  fill="#cc2222"/>
+           <rect x="71" y="20" width="8"  height="14" fill="#003399"/>
+           <circle cx="75" cy="24" r="1" fill="white"/>
+           <circle cx="79" cy="24" r="1" fill="white"/>
+           <circle cx="75" cy="28" r="1" fill="white"/>
+           <circle cx="79" cy="28" r="1" fill="white"/>`
+        ),
+
+        // 4: Football zombie — helmet
+        () => base(`<!-- helmet -->
+                    <ellipse cx="43" cy="28" rx="26" ry="20" fill="#2a5a2a"/>
+                    <ellipse cx="43" cy="20" rx="24" ry="16" fill="#3a7a3a"/>
+                    <!-- face guard -->
+                    <rect x="30" y="36" width="26" height="3" fill="#888" rx="1"/>
+                    <rect x="36" y="32" width="3"  height="12" fill="#888" rx="1"/>
+                    <rect x="44" y="32" width="3"  height="12" fill="#888" rx="1"/>
+                    <!-- stripe -->
+                    <rect x="40" y="6" width="6" height="26" fill="#ffdd00" rx="2"/>
+                    <!-- ear pads -->
+                    <ellipse cx="17" cy="34" rx="5" ry="7" fill="#2a5a2a"/>
+                    <ellipse cx="69" cy="34" rx="5" ry="7" fill="#2a5a2a"/>`),
+
+        // 5: Disco zombie — white suit + afro
+        () => base(
+          `<!-- afro -->
+           <ellipse cx="43" cy="18" rx="28" ry="20" fill="#1a0a00"/>
+           <ellipse cx="43" cy="16" rx="26" ry="18" fill="#2a1200"/>`,
+          `<!-- white disco suit overlay -->
+           <rect x="22" y="70" width="42" height="40" fill="#e8e8e8" rx="4"/>
+           <polygon points="36,70 28,78 36,85" fill="#ccc"/>
+           <polygon points="50,70 58,78 50,85" fill="#ccc"/>
+           <rect x="36" y="70" width="14" height="30" fill="white"/>
+           <polygon points="43,72 40,82 43,95 46,82" fill="#ff44aa"/>
+           <!-- disco ball -->
+           <circle cx="75" cy="25" r="8" fill="#ddd"/>
+           <line x1="75" y1="2" x2="75" y2="17" stroke="#888" stroke-width="1.5"/>
+           <rect x="67" y="23" width="16" height="2" fill="#aaa" opacity="0.5"/>
+           <rect x="67" y="27" width="16" height="2" fill="#aaa" opacity="0.5"/>
+           <rect x="73" y="17" width="2" height="16" fill="#aaa" opacity="0.5"/>
+           <rect x="77" y="17" width="2" height="16" fill="#aaa" opacity="0.5"/>
+           <!-- pointing finger -->
+           <line x1="76" y1="62" x2="84" y2="48" stroke="${skin}" stroke-width="4" stroke-linecap="round"/>`
+        ),
+
+        // 6: Newspaper zombie — holding newspaper
+        () => base(
+          `<ellipse cx="43" cy="16" rx="24" ry="10" fill="#1a120a"/>`,
+          `<!-- newspaper -->
+           <rect x="54" y="55" width="28" height="20" fill="#f0ead0" rx="2"/>
+           <rect x="54" y="55" width="28" height="4"  fill="#ddd8b0"/>
+           <line x1="56" y1="63" x2="80" y2="63" stroke="#666" stroke-width="1"/>
+           <line x1="56" y1="67" x2="80" y2="67" stroke="#666" stroke-width="1"/>
+           <line x1="56" y1="71" x2="72" y2="71" stroke="#666" stroke-width="1"/>
+           <text x="57" y="61" font-size="4" fill="#333" font-family="serif">BRAINS!</text>
+           <!-- glasses (bent) -->
+           <ellipse cx="32" cy="38" rx="7" ry="6" fill="none" stroke="#888" stroke-width="1.5"/>
+           <ellipse cx="54" cy="38" rx="7" ry="6" fill="none" stroke="#888" stroke-width="1.5"/>
+           <line x1="39" y1="38" x2="47" y2="38" stroke="#888" stroke-width="1.5"/>
+           <line x1="25" y1="38" x2="22" y2="36" stroke="#888" stroke-width="1.5"/>`
+        ),
+      ];
+
+      return types[typeIdx]();
     }
 
     function setStatus(msg, isError = false) {
