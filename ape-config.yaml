@@ -16,9 +16,11 @@ compilers:
 contracts_folder: contracts
 
 test:
-  folder: tests
+  folder: test
 
 networks:
   ethereum:
     local:
+      default_provider: test
+    local_hardhat:
       default_provider: hardhat
