@@ -4,7 +4,7 @@
 
 | Name | CWID | Email |
 |------|------|-------|
-| Chris | TODO | TODO@student.edu |
+| Chris Cao | 891811242 | darknite1251@csu.fullerton.edu |
 
 ---
 

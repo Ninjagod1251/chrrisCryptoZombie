@@ -66,4 +66,4 @@ npx http-server -p 8080
 
 ## Demo Video
 
-See `demo.mp4` in this folder.
+See `step1_video.mp4` in this folder.
