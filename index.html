@@ -270,7 +270,16 @@
     }
 
     function setStatus(msg, isError = false) {
-      $("#txStatus").text(msg).removeClass("active error").addClass("active" + (isError ? " error" : ""));
+      let text = (msg && msg.message) ? msg.message : String(msg);
+      // Friendlier messages for common errors
+      if (text.includes("Internal JSON-RPC error") || text.includes("invalid block tag")) {
+        text = "Contract not found on this network. Please run: ape run deploy --network ethereum:local:hardhat — then hard refresh (Ctrl+Shift+R).";
+      } else if (text.includes("already been minted") || text.includes("execution reverted")) {
+        text = "Transaction reverted — this account may already own a zombie. Switch MetaMask account to create another.";
+      } else if (text.includes("User denied")) {
+        text = "Transaction cancelled by user.";
+      }
+      $("#txStatus").text(text).removeClass("active error").addClass("active" + (isError ? " error" : ""));
     }
 
     function createRandomZombie(name) {
