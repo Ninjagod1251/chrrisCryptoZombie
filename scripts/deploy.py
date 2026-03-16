@@ -5,7 +5,11 @@ from ape import accounts, project
 
 
 def main():
-    acct = accounts.test_accounts[0]
+    # Use 'deployer' keyfile for live networks, test_accounts for local
+    try:
+        acct = accounts.load("deployer")
+    except Exception:
+        acct = accounts.test_accounts[0]
     contract = acct.deploy(project.ZombieOwnership)
     print("Contract deployed at:", contract.address)
 

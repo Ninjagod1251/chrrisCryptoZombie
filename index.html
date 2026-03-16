@@ -421,7 +421,7 @@
 
     function startApp() {
       //ZombieOwnership contract address — updated automatically by scripts/deploy.py
-      var cryptoZombiesAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+      var cryptoZombiesAddress = "0x3dBD39B485546f40816849B10612C79275A9678b";
       cryptoZombies = new web3.eth.Contract(cryptoZombiesABI, cryptoZombiesAddress);
 
       cryptoZombies.events.Transfer({ filter: { _to: userAccount } })

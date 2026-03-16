@@ -24,3 +24,10 @@ networks:
       default_provider: test
     local_hardhat:
       default_provider: hardhat
+    sepolia:
+      default_provider: node
+
+node:
+  ethereum:
+    sepolia:
+      uri: https://ethereum-sepolia-rpc.publicnode.com
