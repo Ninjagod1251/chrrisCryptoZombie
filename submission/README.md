@@ -11,12 +11,16 @@
 ## Project Overview
 
 A CryptoZombies decentralized application built on Ethereum smart contracts.
-The project is organized into two milestones:
+The project is organized into steps, each building on the last:
 
-| Step | Folder | Description |
-|------|--------|-------------|
-| 1 | `step1_truffle_ganache/` | Starter code running with Truffle + Ganache (minimum requirement) |
-| 2 | `step2_ape_migration/` | Upgraded to Ape framework for deployment and scripting |
+| Step | Branch | Folder | Description | Rubric |
+|------|--------|--------|-------------|--------|
+| 1 | `step1-truffle-ganache` | `step1_truffle_ganache/` | Starter code running with Truffle + Ganache | Minimum requirement (18 pts) |
+| 2 | `step2-ape-migration` | `step2_ape_migration/` | Migrated to Ape Framework + Hardhat | Improvement #1 + #2 |
+| 3 | `step3-nicer-website` | `step3_nicer_website/` | Improved UI with zombie cards and styling | Improvement #3 |
+| 4 | `step4-multiple-zombies` | `step4_multiple_zombies/` | Demo multiple zombies across accounts | Improvement #4 |
+| 5 | `step5-transfer` | `step5_transfer/` | Transfer zombie between accounts via frontend | Improvement #5 |
+| 6 | `step6-zombie-image` | `step6_zombie_image/` | Zombie avatar generated from DNA | Improvement #6 |
 
 ---
 
@@ -29,8 +33,13 @@ The project is organized into two milestones:
    `ZombieOwnership` address into `index.html` after each deploy, removing the need
    to manually hard-code the address.
 
-3. **Demo startup script** — `start_demo.sh` starts the Hardhat node, deploys contracts,
-   and prints MetaMask setup instructions in one command.
+3. **Nicer website** — *(in progress)* improved CSS, zombie card layout.
+
+4. **Multiple zombies** — *(in progress)* demo multiple accounts each owning a zombie.
+
+5. **Transfer zombie** — *(in progress)* transfer button added to the frontend.
+
+6. **Zombie image** — *(in progress)* zombie avatar generated from DNA value.
 
 ---
 

@@ -1,5 +1,25 @@
 # Step 2 — Ape Framework Migration
 
+## Why We Switched to Ape
+
+The original starter code used Truffle + Ganache, which are JavaScript-based tools.
+We migrated to **Ape Framework** for several reasons:
+
+- **Python-native tooling** — Ape uses Python for scripts and configuration, making it
+  easier to write complex deployment logic, automate tasks, and integrate with the
+  broader Python ecosystem (testing, data, automation).
+- **Cleaner deploy scripts** — Truffle migration files are JavaScript with a rigid
+  structure. Ape deploy scripts are plain Python functions, easier to read and extend.
+- **Automatic frontend updates** — We added logic directly in `deploy.py` to update
+  `index.html` with the new contract address after every deploy. With Truffle this was
+  a manual copy/paste step that caused errors when forgotten.
+- **Modern local network** — Replaced Ganache (no longer actively maintained) with
+  Hardhat as the local network provider via `ape-hardhat`, giving better error messages
+  and faster block times.
+- **Single environment** — One Python virtual environment (`advBlockchain`) manages
+  everything: compiler, network, deploy scripts. No need to manage separate Node
+  global installs for Truffle and Ganache.
+
 ## What This Demonstrates
 
 The project deployment is upgraded from Truffle to **Ape Framework**,
@@ -56,4 +76,4 @@ Open `http://localhost:8080`
 
 ## Demo Video
 
-See `demo.mp4` in this folder.
+See `step2_video.mp4` in this folder.
