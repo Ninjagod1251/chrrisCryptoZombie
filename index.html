@@ -141,23 +141,30 @@
 
     .transfer-section { margin-top: 14px; border-top: 1px solid #ffffff11; padding-top: 12px; }
 
-    .transfer-btn {
-      width: 100%;
-      padding: 8px;
-      font-size: 0.8rem;
-      border-color: #38bdf8;
-      color: #38bdf8;
+    .card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 14px; }
+
+    .card-btn {
+      padding: 7px 4px;
+      font-size: 0.72rem;
       letter-spacing: 0;
       text-transform: none;
+      border-radius: 5px;
     }
-    .transfer-btn:hover { background: #38bdf8; color: #0a0a0f; box-shadow: 0 0 12px #38bdf855; }
+    .btn-transfer { border-color: #38bdf8; color: #38bdf8; }
+    .btn-transfer:hover { background: #38bdf8; color: #0a0a0f; }
+    .btn-attack   { border-color: #ef4444; color: #ef4444; }
+    .btn-attack:hover   { background: #ef4444; color: #0a0a0f; }
+    .btn-rename   { border-color: #facc15; color: #facc15; }
+    .btn-rename:hover   { background: #facc15; color: #0a0a0f; }
+    .btn-dna      { border-color: #a855f7; color: #a855f7; }
+    .btn-dna:hover      { background: #a855f7; color: #0a0a0f; }
 
-    .transfer-form { display: none; margin-top: 10px; }
-    .transfer-form.open { display: flex; flex-direction: column; gap: 8px; }
+    .action-form { display: none; margin-top: 10px; flex-direction: column; gap: 8px; }
+    .action-form.open { display: flex; }
 
-    .transfer-form input {
+    .action-form input {
       background: #0d2137;
-      border: 1px solid #38bdf844;
+      border: 1px solid #ffffff22;
       border-radius: 4px;
       padding: 8px 10px;
       color: #e0e0e0;
@@ -165,16 +172,8 @@
       font-size: 0.75rem;
       width: 100%;
     }
-    .transfer-form input:focus { outline: none; border-color: #38bdf8; }
-
-    .confirm-transfer-btn {
-      padding: 8px;
-      font-size: 0.8rem;
-      border-color: #38bdf8;
-      color: #38bdf8;
-      letter-spacing: 0;
-      text-transform: none;
-    }
+    .action-form input:focus { outline: none; border-color: #00ff88; }
+    .confirm-transfer-btn { border-color: #38bdf8; color: #38bdf8; padding: 7px; font-size: 0.75rem; letter-spacing: 0; text-transform: none; }
     .confirm-transfer-btn:hover { background: #38bdf8; color: #0a0a0f; }
 
     #empty-state { color: #444; text-align: center; padding: 60px 0; font-size: 1.1rem; }
@@ -459,21 +458,44 @@
               <div class="stat"><span class="label">Losses</span><span class="value">${zombie.lossCount}</span></div>
               <div class="stat"><span class="label">Ready</span><span class="value">${readyDate}</span></div>
               <div class="dna-bar" style="opacity:${0.4 + parseInt(zombie.level) * 0.1}"></div>
-              <div class="transfer-section">
-                <button class="transfer-btn" onclick="toggleTransfer(${zombieId})">&#x21C4; Transfer Zombie</button>
-                <div class="transfer-form" id="transfer-form-${zombieId}">
-                  <input type="text" id="transfer-addr-${zombieId}" placeholder="Recipient address (0x...)"/>
-                  <button class="confirm-transfer-btn" onclick="transferZombie(${zombieId})">Confirm Transfer</button>
-                </div>
+              <div class="card-actions">
+                <button class="card-btn btn-transfer" onclick="toggleForm('transfer',${zombieId})">&#x21C4; Transfer</button>
+                <button class="card-btn btn-attack"   onclick="toggleForm('attack',${zombieId})">&#x2694; Attack</button>
+                <button class="card-btn btn-rename"   onclick="toggleForm('rename',${zombieId})">&#x270F; Rename</button>
+                <button class="card-btn btn-dna"      onclick="toggleForm('dna',${zombieId})">&#x1F9EC; DNA</button>
+              </div>
+
+              <div class="action-form" id="transfer-form-${zombieId}">
+                <input type="text" id="transfer-addr-${zombieId}" placeholder="Recipient address (0x...)"/>
+                <button class="card-btn btn-transfer" onclick="transferZombie(${zombieId})">Confirm Transfer</button>
+              </div>
+
+              <div class="action-form" id="attack-form-${zombieId}">
+                <input type="number" id="attack-target-${zombieId}" placeholder="Target Zombie ID (e.g. 0, 1, 2...)"/>
+                <button class="card-btn btn-attack" onclick="attackZombie(${zombieId})">Confirm Attack</button>
+              </div>
+
+              <div class="action-form" id="rename-form-${zombieId}">
+                <input type="text" id="rename-val-${zombieId}" placeholder="New name (requires Level 2+)"/>
+                <button class="card-btn btn-rename" onclick="renameZombie(${zombieId})">Confirm Rename</button>
+              </div>
+
+              <div class="action-form" id="dna-form-${zombieId}">
+                <input type="number" id="dna-val-${zombieId}" placeholder="New DNA number (requires Level 20+)"/>
+                <button class="card-btn btn-dna" onclick="changeDnaZombie(${zombieId})">Confirm DNA Change</button>
               </div>
             </div>`);
         });
       }
     }
 
-    // ── Step 5: Transfer zombie ──────────────────────────────────────────────
-    function toggleTransfer(zombieId) {
-      $(`#transfer-form-${zombieId}`).toggleClass("open");
+    // ── Toggle action forms ──────────────────────────────────────────────────
+    function toggleForm(type, zombieId) {
+      const formId = `#${type}-form-${zombieId}`;
+      const isOpen = $(formId).hasClass("open");
+      // close all forms on this card first
+      $(`[id$="-form-${zombieId}"]`).removeClass("open");
+      if (!isOpen) $(formId).addClass("open");
     }
 
     function transferZombie(zombieId) {
@@ -489,6 +511,49 @@
         .send({ from: userAccount })
         .on("receipt", function(receipt) {
           setStatus("Zombie #" + zombieId + " transferred successfully!");
+          getZombiesByOwner(userAccount).then(displayZombies);
+        })
+        .on("error", function(error) { setStatus(error, true); });
+    }
+
+    // ── Attack ───────────────────────────────────────────────────────────────
+    function attackZombie(zombieId) {
+      const targetId = $(`#attack-target-${zombieId}`).val().trim();
+      if (targetId === '' || isNaN(targetId)) { setStatus("Enter a valid target zombie ID.", true); return; }
+      if (parseInt(targetId) === zombieId)    { setStatus("A zombie cannot attack itself!", true); return; }
+      setStatus("Zombie #" + zombieId + " is attacking zombie #" + targetId + "...");
+      cryptoZombies.methods.attack(zombieId, parseInt(targetId))
+        .send({ from: userAccount })
+        .on("receipt", function(receipt) {
+          setStatus("Attack complete! Check wins/losses.");
+          getZombiesByOwner(userAccount).then(displayZombies);
+        })
+        .on("error", function(error) { setStatus(error, true); });
+    }
+
+    // ── Change Name (Level 2+) ───────────────────────────────────────────────
+    function renameZombie(zombieId) {
+      const newName = $(`#rename-val-${zombieId}`).val().trim();
+      if (!newName) { setStatus("Enter a new name.", true); return; }
+      setStatus("Renaming zombie #" + zombieId + "...");
+      cryptoZombies.methods.changeName(zombieId, newName)
+        .send({ from: userAccount })
+        .on("receipt", function(receipt) {
+          setStatus("Zombie renamed to: " + newName);
+          getZombiesByOwner(userAccount).then(displayZombies);
+        })
+        .on("error", function(error) { setStatus(error, true); });
+    }
+
+    // ── Change DNA (Level 20+) ───────────────────────────────────────────────
+    function changeDnaZombie(zombieId) {
+      const newDna = $(`#dna-val-${zombieId}`).val().trim();
+      if (!newDna || isNaN(newDna)) { setStatus("Enter a valid DNA number.", true); return; }
+      setStatus("Changing DNA of zombie #" + zombieId + "...");
+      cryptoZombies.methods.changeDna(zombieId, newDna)
+        .send({ from: userAccount })
+        .on("receipt", function(receipt) {
+          setStatus("DNA changed successfully!");
           getZombiesByOwner(userAccount).then(displayZombies);
         })
         .on("error", function(error) { setStatus(error, true); });
