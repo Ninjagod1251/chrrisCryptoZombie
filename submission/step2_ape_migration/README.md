@@ -76,4 +76,4 @@ Open `http://localhost:8080`
 
 ## Demo Video
 
-See `demo.mp4` in this folder.
+See `step2_video.mp4` in this folder.
