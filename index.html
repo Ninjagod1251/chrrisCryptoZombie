@@ -30,8 +30,8 @@
 
     function startApp() {
 	
-      //ZombieOwnership contratc address
-      var cryptoZombiesAddress = "0xC08d276D3022F1E9E1e99eBAa6410fE4FcbEcB8f";
+      //ZombieOwnership contract address — update after `truffle migrate` or run `node scripts/update_frontend.js`
+      var cryptoZombiesAddress = "0xB89C70D350C92AA08b754771aF9FD396d067C3dD";
 
       cryptoZombies = new web3.eth.Contract(cryptoZombiesABI, cryptoZombiesAddress);
 
