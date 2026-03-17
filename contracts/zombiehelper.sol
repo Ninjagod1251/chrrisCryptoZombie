@@ -28,9 +28,7 @@ contract ZombieHelper is ZombieFeeding {
   function batchLevelUp(uint _zombieId, uint _times) external payable {
     require(_times > 0 && _times <= 20);
     require(msg.value == levelUpFee.mul(_times));
-    for (uint i = 0; i < _times; i++) {
-      zombies[_zombieId].level = zombies[_zombieId].level.add(1);
-    }
+    zombies[_zombieId].level = zombies[_zombieId].level.add(uint32(_times));
   }
 
   function changeName(uint _zombieId, string _newName) external aboveLevel(2, _zombieId) onlyOwnerOf(_zombieId) {

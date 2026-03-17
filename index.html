@@ -488,7 +488,7 @@
     }
 
     // ── Step 4: Display multiple zombies ────────────────────────────────────
-    function displayZombies(ids) {
+    async function displayZombies(ids) {
       $("#zombies").empty();
       if (ids.length === 0) {
         $("#zombie-count").text("");
@@ -496,19 +496,19 @@
         return;
       }
       $("#zombie-count").text(`${ids.length} zombie${ids.length > 1 ? 's' : ''} in your army`);
-      for (let i = 0; i < ids.length; i++) {
-        const zombieId = ids[i];
-        getZombieDetails(zombieId).then(function(zombie) {
-          const dnaStr    = zombie.dna.toString().padStart(16, '0');
-          const readyDate = new Date(zombie.readyTime * 1000).toLocaleString();
-          const shortName = zombie.name.length > 22
-            ? zombie.name.slice(0,10) + '...' + zombie.name.slice(-8)
-            : zombie.name;
-          const svgFallback = generateZombieAvatar(zombie.dna, parseInt(zombie.level));
-          const roboUrl = `http://localhost:8888/${zombie.dna}.png?set=set2&size=150x150`;
-          const avatarHtml = `<img src="${roboUrl}" alt="zombie avatar" onerror="this.outerHTML='${svgFallback.replace(/'/g, "&#39;")}'"/>`;
+      const zombies = await Promise.all(ids.map(id => getZombieDetails(id)));
+      zombies.forEach(function(zombie, i) {
+        const zombieId  = ids[i];
+        const dnaStr    = zombie.dna.toString().padStart(16, '0');
+        const readyDate = new Date(zombie.readyTime * 1000).toLocaleString();
+        const shortName = zombie.name.length > 22
+          ? zombie.name.slice(0,10) + '...' + zombie.name.slice(-8)
+          : zombie.name;
+        const svgFallback = generateZombieAvatar(zombie.dna, parseInt(zombie.level));
+        const roboUrl = `http://localhost:8888/${zombie.dna}.png?set=set2&size=150x150`;
+        const avatarHtml = `<img src="${roboUrl}" alt="zombie avatar" onerror="this.outerHTML='${svgFallback.replace(/'/g, "&#39;")}'"/>`;
 
-          $("#zombies").append(`
+        $("#zombies").append(`
             <div class="zombie-card">
               <div class="zombie-avatar">${avatarHtml}</div>
               <div class="level-badge">Level ${zombie.level}</div>
@@ -553,8 +553,7 @@
                 <button class="card-btn btn-dna" onclick="changeDnaZombie(${zombieId})">Confirm DNA Change</button>
               </div>
             </div>`);
-        });
-      }
+      });
     }
 
     // ── Toggle action forms ──────────────────────────────────────────────────
@@ -603,9 +602,11 @@
       }
 
       $grid.empty();
-      for (const ev of events) {
-        const id = ev.returnValues._tokenId;
-        const zombie = await cryptoZombies.methods.zombies(id).call();
+      const burntZombies = await Promise.all(
+        events.map(ev => cryptoZombies.methods.zombies(ev.returnValues._tokenId).call()
+          .then(z => ({ id: ev.returnValues._tokenId, zombie: z })))
+      );
+      burntZombies.forEach(({ id, zombie }) => {
         const roboUrl = `http://localhost:8888/${zombie.dna}.png?set=set2&size=150x150`;
         $grid.append(`
           <div class="cemetery-card">
@@ -615,7 +616,7 @@
             <div class="stat">DNA: ${zombie.dna.toString().slice(0,8)}...</div>
             <div class="stat">Level: ${zombie.level} | W:${zombie.winCount} L:${zombie.lossCount}</div>
           </div>`);
-      }
+      });
     }
 
     function transferZombie(zombieId) {
@@ -690,28 +691,28 @@
         .on("error", function(error) { setStatus(error, true); });
     }
 
+    // ── Gas savings helper (cached ETH price, 60s TTL) ──────────────────────
+    let _ethPriceCache = { usd: null, ts: 0 };
+    async function calcSavingsMsg(txCount, gasPrice) {
+      const savedGas = 21000 * (txCount - 1);
+      const savedEth = (savedGas * Number(gasPrice)) / 1e18;
+      try {
+        if (!_ethPriceCache.usd || Date.now() - _ethPriceCache.ts > 60000) {
+          const data = await (await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd")).json();
+          _ethPriceCache = { usd: data.ethereum.usd, ts: Date.now() };
+        }
+        return ` — saved ~$${(savedEth * _ethPriceCache.usd).toFixed(4)} vs individual transactions`;
+      } catch (_) {
+        return ` — saved ~${savedGas.toLocaleString()} gas vs individual transactions`;
+      }
+    }
+
     async function batchCreateZombies(count) {
       setStatus("Creating " + count + " zombies in one transaction...");
       try {
         const gasPrice = await web3.eth.getGasPrice();
-        const receipt  = await cryptoZombies.methods.batchCreateZombies(count)
-          .send({ from: userAccount });
-
-        // Savings = (count-1) base tx fees we avoided (21000 gas each)
-        const savedGas   = 21000 * (count - 1);
-        const savedEth   = (savedGas * Number(gasPrice)) / 1e18;
-
-        let savingsMsg = "";
-        try {
-          const resp   = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-          const data   = await resp.json();
-          const ethUsd = data.ethereum.usd;
-          const savedUsd = (savedEth * ethUsd).toFixed(4);
-          savingsMsg = ` — saved ~$${savedUsd} vs individual transactions`;
-        } catch (_) {
-          savingsMsg = ` — saved ~${savedGas.toLocaleString()} gas vs individual transactions`;
-        }
-
+        await cryptoZombies.methods.batchCreateZombies(count).send({ from: userAccount });
+        const savingsMsg = await calcSavingsMsg(count, gasPrice);
         setStatus("Created " + count + " zombie" + (count > 1 ? "s" : "") + savingsMsg + "!");
         getZombiesByOwner(userAccount).then(displayZombies);
       } catch(error) {
@@ -754,19 +755,7 @@
         await cryptoZombies.methods.batchLevelUp(zombieId, times)
           .send({ from: userAccount, value: totalWei });
 
-        const savedGas = 21000 * (times - 1);
-        const savedEth = (savedGas * Number(gasPrice)) / 1e18;
-
-        let savingsMsg = "";
-        try {
-          const resp   = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-          const data   = await resp.json();
-          const savedUsd = (savedEth * data.ethereum.usd).toFixed(4);
-          savingsMsg = ` — saved ~$${savedUsd} vs individual transactions`;
-        } catch (_) {
-          savingsMsg = ` — saved ~${savedGas.toLocaleString()} gas vs individual transactions`;
-        }
-
+        const savingsMsg = await calcSavingsMsg(times, gasPrice);
         setStatus("Zombie #" + zombieId + " leveled up × " + times + savingsMsg + "!");
         getZombiesByOwner(userAccount).then(displayZombies);
       } catch(error) {
