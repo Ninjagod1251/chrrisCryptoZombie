@@ -1,0 +1,16 @@
+services:
+  hardhat:
+    image: node:18-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: npx hardhat node --hostname 0.0.0.0
+    ports:
+      - "8545:8545"
+    restart: unless-stopped
+
+  robohash:
+    image: ghcr.io/e1ven/robohash:latest
+    ports:
+      - "8888:8080"
+    restart: unless-stopped

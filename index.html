@@ -85,6 +85,43 @@
     button.createzombieButton:hover { background: #ff6b35; color: #0a0a0f; box-shadow: 0 0 16px #ff6b3577; }
     button.levelupButton { border-color: #a855f7; color: #a855f7; }
     button.levelupButton:hover { background: #a855f7; color: #0a0a0f; box-shadow: 0 0 16px #a855f777; }
+    button.cemeteryButton { border-color: #94a3b8; color: #94a3b8; }
+    button.cemeteryButton:hover { background: #94a3b8; color: #0a0a0f; box-shadow: 0 0 16px #94a3b855; }
+    .btn-burn  { border-color: #ef4444; color: #ef4444; }
+    .btn-burn:hover { background: #ef4444; color: #fff; }
+
+    /* Burn confirmation overlay */
+    .burn-confirm { display: none; margin-top: 8px; padding: 10px; background: #1a0505;
+      border: 1px solid #ef444466; border-radius: 6px; text-align: center; font-size: 0.8rem; color: #ef4444; }
+    .burn-confirm.open { display: block; }
+    .burn-confirm p { margin: 0 0 8px; }
+
+    /* Greyout state when burning */
+    .zombie-card.burning { opacity: 0.4; filter: grayscale(100%); pointer-events: none; }
+    @keyframes fadeOut { from { opacity: 0.4; } to { opacity: 0; transform: scale(0.95); } }
+    .zombie-card.fading { animation: fadeOut 0.6s ease forwards; }
+
+    /* Cemetery section */
+    #cemetery-section { margin-top: 48px; }
+    #cemetery-title { color: #94a3b8; font-size: 1.2rem; margin-bottom: 20px;
+      border-bottom: 1px solid #94a3b822; padding-bottom: 10px; }
+    #cemetery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 20px; }
+    .cemetery-card { background: #0f0f14; border: 1px solid #94a3b833; border-radius: 12px;
+      padding: 16px; filter: grayscale(100%); opacity: 0.6; position: relative; }
+    .cemetery-card .rip-badge { position: absolute; top: 10px; right: 10px;
+      background: #94a3b822; border: 1px solid #94a3b8; color: #94a3b8;
+      font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; }
+    .cemetery-card h3 { color: #94a3b8; font-size: 0.9rem; margin: 8px 0 4px;
+      text-decoration: line-through; }
+    .cemetery-card .stat { font-size: 0.75rem; color: #64748b; }
+    .cemetery-card img { width: 100%; height: 120px; object-fit: cover;
+      border-radius: 6px; margin-bottom: 8px; }
+    #zombieBatchCount {
+      width: 70px; padding: 8px 10px; background: #0a0a0f;
+      border: 1px solid #ff6b35; color: #ff6b35; border-radius: 6px;
+      font-family: inherit; font-size: 1rem; font-weight: bold; text-align: center;
+    }
+    #zombieBatchCount:focus { outline: none; border-color: #ff6b35; box-shadow: 0 0 8px #ff6b3577; }
 
     #zombies {
       display: grid;
@@ -110,6 +147,7 @@
       background: #0a0a0f;
     }
     .zombie-avatar svg { width: 100%; height: 100%; }
+    .zombie-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
 
     .zombie-card h3 {
       color: #00ff88;
@@ -158,6 +196,14 @@
     .btn-rename:hover   { background: #facc15; color: #0a0a0f; }
     .btn-dna      { border-color: #a855f7; color: #a855f7; }
     .btn-dna:hover      { background: #a855f7; color: #0a0a0f; }
+    .btn-levelup  { border-color: #00ff88; color: #00ff88; }
+    .btn-levelup:hover  { background: #00ff88; color: #0a0a0f; }
+    .level-count-input {
+      width: 48px; padding: 5px 6px; background: #0a0a0f;
+      border: 1px solid #00ff88; color: #00ff88; border-radius: 6px;
+      font-family: inherit; font-size: 0.85rem; font-weight: bold; text-align: center;
+    }
+    .level-count-input:focus { outline: none; box-shadow: 0 0 6px #00ff8855; }
 
     .action-form { display: none; margin-top: 10px; flex-direction: column; gap: 8px; }
     .action-form.open { display: flex; }
@@ -195,20 +241,26 @@
     <div class="actions">
       <button class="showZombieButton">Show Zombies</button>
       <button class="createzombieButton">&#x2694; Create Zombie</button>
-      <button class="levelupButton">&#x2B06; Level Up</button>
+      <input type="number" id="zombieBatchCount" min="1" max="20" value="1" title="How many zombies to create (max 20)"/>
+      <button class="cemeteryButton">&#x26B0; Cemetery</button>
       <span id="zombie-count"></span>
     </div>
 
     <div id="zombies"><div id="empty-state">Click "Show Zombies" to load your army</div></div>
+
+    <div id="cemetery-section" style="display:none">
+      <h2 id="cemetery-title">&#x26B0; Cemetery</h2>
+      <div id="cemetery-grid"></div>
+    </div>
   </div>
 
   <script>
 
     var cryptoZombies;
     var userAccount;
-    const showZombieButton  = document.querySelector('.showZombieButton');
+    const showZombieButton   = document.querySelector('.showZombieButton');
     const createzombieButton = document.querySelector('.createzombieButton');
-    const levelupButton     = document.querySelector('.levelupButton');
+    const cemeteryButton     = document.querySelector('.cemeteryButton');
 
     // ── Step 6: PvZ-style zombie avatar from DNA ─────────────────────────────
     function generateZombieAvatar(dna, level) {
@@ -407,20 +459,26 @@
     }
 
     function setStatus(msg, isError = false) {
-      let text = (msg && msg.message) ? msg.message : String(msg);
+      // Extract the deepest useful message from nested error objects
+      let text = (msg && msg.data && msg.data.message)
+        ? msg.data.message
+        : (msg && msg.message) ? msg.message : String(msg);
+
       if (text.includes("Internal JSON-RPC error") || text.includes("invalid block tag")) {
-        text = "Contract not found. Run: ape run deploy --network ethereum:local:hardhat — then Ctrl+Shift+R.";
+        text = "Stale MetaMask session — go to MetaMask → Settings → Advanced → Reset Account, then try again.";
       } else if (text.includes("execution reverted")) {
         text = "Transaction reverted — this account may already own a zombie. Switch MetaMask account.";
       } else if (text.includes("User denied")) {
         text = "Transaction cancelled.";
       }
+      // Always log full error to console for debugging
+      if (isError) console.error("[setStatus]", msg);
       $("#txStatus").text(text).removeClass("active error").addClass("active" + (isError ? " error" : ""));
     }
 
     function startApp() {
       //ZombieOwnership contract address — updated automatically by scripts/deploy.py
-      var cryptoZombiesAddress = "0x3dBD39B485546f40816849B10612C79275A9678b";
+      var cryptoZombiesAddress = "0xc5a5C42992dECbae36851359345FE25997F5C42d";
       cryptoZombies = new web3.eth.Contract(cryptoZombiesABI, cryptoZombiesAddress);
 
       cryptoZombies.events.Transfer({ filter: { _to: userAccount } })
@@ -446,11 +504,13 @@
           const shortName = zombie.name.length > 22
             ? zombie.name.slice(0,10) + '...' + zombie.name.slice(-8)
             : zombie.name;
-          const avatar = generateZombieAvatar(zombie.dna, parseInt(zombie.level));
+          const svgFallback = generateZombieAvatar(zombie.dna, parseInt(zombie.level));
+          const roboUrl = `http://localhost:8888/${zombie.dna}.png?set=set2&size=150x150`;
+          const avatarHtml = `<img src="${roboUrl}" alt="zombie avatar" onerror="this.outerHTML='${svgFallback.replace(/'/g, "&#39;")}'"/>`;
 
           $("#zombies").append(`
             <div class="zombie-card">
-              <div class="zombie-avatar">${avatar}</div>
+              <div class="zombie-avatar">${avatarHtml}</div>
               <div class="level-badge">Level ${zombie.level}</div>
               <h3 title="${zombie.name}">${shortName}</h3>
               <div class="stat"><span class="label">DNA</span><span class="value">${dnaStr}</span></div>
@@ -459,10 +519,18 @@
               <div class="stat"><span class="label">Ready</span><span class="value">${readyDate}</span></div>
               <div class="dna-bar" style="opacity:${0.4 + parseInt(zombie.level) * 0.1}"></div>
               <div class="card-actions">
+                <input type="number" class="level-count-input" id="levelCount-${zombieId}" min="1" max="20" value="1" title="Times to level up (max 20)"/>
+                <button class="card-btn btn-levelup"  onclick="batchLevelUpZombie(${zombieId})">&#x2B06; Level Up</button>
                 <button class="card-btn btn-transfer" onclick="toggleForm('transfer',${zombieId})">&#x21C4; Transfer</button>
                 <button class="card-btn btn-attack"   onclick="toggleForm('attack',${zombieId})">&#x2694; Attack</button>
                 <button class="card-btn btn-rename"   onclick="toggleForm('rename',${zombieId})">&#x270F; Rename</button>
                 <button class="card-btn btn-dna"      onclick="toggleForm('dna',${zombieId})">&#x1F9EC; DNA</button>
+                <button class="card-btn btn-burn"     onclick="toggleForm('burn',${zombieId})">&#x1F525; Burn</button>
+              </div>
+
+              <div class="burn-confirm" id="burn-form-${zombieId}">
+                <p>&#x26A0; This is permanent. The zombie will be sent to the cemetery.</p>
+                <button class="card-btn btn-burn" onclick="burnZombie(${zombieId})">Confirm Burn</button>
               </div>
 
               <div class="action-form" id="transfer-form-${zombieId}">
@@ -496,6 +564,58 @@
       // close all forms on this card first
       $(`[id$="-form-${zombieId}"]`).removeClass("open");
       if (!isOpen) $(formId).addClass("open");
+    }
+
+    function burnZombie(zombieId) {
+      const card = $(`#burn-form-${zombieId}`).closest('.zombie-card');
+      setStatus("Burning zombie #" + zombieId + "... this cannot be undone.");
+      cryptoZombies.methods.burnZombie(zombieId)
+        .send({ from: userAccount })
+        .on("receipt", function() {
+          card.addClass("burning");
+          setTimeout(() => {
+            card.removeClass("burning").addClass("fading");
+            setTimeout(() => { card.remove(); setStatus("Zombie #" + zombieId + " has been burned. Visit the Cemetery to pay your respects."); }, 600);
+          }, 1500);
+        })
+        .on("error", function(error) { setStatus(error, true); });
+    }
+
+    async function loadCemetery() {
+      const $section = $("#cemetery-section");
+      const $grid    = $("#cemetery-grid");
+      const isOpen   = $section.is(":visible");
+      if (isOpen) { $section.hide(); return; }
+
+      $grid.html('<p style="color:#64748b">Loading cemetery...</p>');
+      $section.show();
+
+      const ZERO = "0x0000000000000000000000000000000000000000";
+      const events = await cryptoZombies.getPastEvents("Transfer", {
+        filter: { _to: ZERO },
+        fromBlock: 0,
+        toBlock: "latest"
+      });
+
+      if (events.length === 0) {
+        $grid.html('<p style="color:#64748b">No zombies have been burned yet.</p>');
+        return;
+      }
+
+      $grid.empty();
+      for (const ev of events) {
+        const id = ev.returnValues._tokenId;
+        const zombie = await cryptoZombies.methods.zombies(id).call();
+        const roboUrl = `http://localhost:8888/${zombie.dna}.png?set=set2&size=150x150`;
+        $grid.append(`
+          <div class="cemetery-card">
+            <span class="rip-badge">R.I.P.</span>
+            <img src="${roboUrl}" alt="burned zombie" onerror="this.style.display='none'"/>
+            <h3>#${id} ${zombie.name}</h3>
+            <div class="stat">DNA: ${zombie.dna.toString().slice(0,8)}...</div>
+            <div class="stat">Level: ${zombie.level} | W:${zombie.winCount} L:${zombie.lossCount}</div>
+          </div>`);
+      }
     }
 
     function transferZombie(zombieId) {
@@ -570,6 +690,35 @@
         .on("error", function(error) { setStatus(error, true); });
     }
 
+    async function batchCreateZombies(count) {
+      setStatus("Creating " + count + " zombies in one transaction...");
+      try {
+        const gasPrice = await web3.eth.getGasPrice();
+        const receipt  = await cryptoZombies.methods.batchCreateZombies(count)
+          .send({ from: userAccount });
+
+        // Savings = (count-1) base tx fees we avoided (21000 gas each)
+        const savedGas   = 21000 * (count - 1);
+        const savedEth   = (savedGas * Number(gasPrice)) / 1e18;
+
+        let savingsMsg = "";
+        try {
+          const resp   = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+          const data   = await resp.json();
+          const ethUsd = data.ethereum.usd;
+          const savedUsd = (savedEth * ethUsd).toFixed(4);
+          savingsMsg = ` — saved ~$${savedUsd} vs individual transactions`;
+        } catch (_) {
+          savingsMsg = ` — saved ~${savedGas.toLocaleString()} gas vs individual transactions`;
+        }
+
+        setStatus("Created " + count + " zombie" + (count > 1 ? "s" : "") + savingsMsg + "!");
+        getZombiesByOwner(userAccount).then(displayZombies);
+      } catch(error) {
+        setStatus(error, true);
+      }
+    }
+
     function feedOnKitty(zombieId, kittyId) {
       setStatus("Eating a kitty...");
       return cryptoZombies.methods.feedOnKitty(zombieId, kittyId)
@@ -590,6 +739,39 @@
           getZombiesByOwner(userAccount).then(displayZombies);
         })
         .on("error", function(error) { setStatus(error, true); });
+    }
+
+    async function batchLevelUpZombie(zombieId) {
+      const times = parseInt(document.getElementById("levelCount-" + zombieId).value) || 1;
+      if (times === 1) { levelUp(zombieId); return; }
+
+      setStatus("Leveling up zombie #" + zombieId + " × " + times + " in one transaction...");
+      try {
+        const feeWei   = BigInt(web3.utils.toWei("0.001", "ether"));
+        const totalWei = (feeWei * BigInt(times)).toString();
+        const gasPrice = await web3.eth.getGasPrice();
+
+        await cryptoZombies.methods.batchLevelUp(zombieId, times)
+          .send({ from: userAccount, value: totalWei });
+
+        const savedGas = 21000 * (times - 1);
+        const savedEth = (savedGas * Number(gasPrice)) / 1e18;
+
+        let savingsMsg = "";
+        try {
+          const resp   = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+          const data   = await resp.json();
+          const savedUsd = (savedEth * data.ethereum.usd).toFixed(4);
+          savingsMsg = ` — saved ~$${savedUsd} vs individual transactions`;
+        } catch (_) {
+          savingsMsg = ` — saved ~${savedGas.toLocaleString()} gas vs individual transactions`;
+        }
+
+        setStatus("Zombie #" + zombieId + " leveled up × " + times + savingsMsg + "!");
+        getZombiesByOwner(userAccount).then(displayZombies);
+      } catch(error) {
+        setStatus(error, true);
+      }
     }
 
     function getZombieDetails(id) { return cryptoZombies.methods.zombies(id).call(); }
@@ -621,16 +803,17 @@
       getZombiesByOwner(userAccount).then(displayZombies);
     });
 
+    cemeteryButton.addEventListener('click', () => { loadCemetery(); });
+
     createzombieButton.addEventListener('click', () => {
-      createRandomZombie(userAccount);
+      const count = parseInt(document.getElementById('zombieBatchCount').value) || 1;
+      if (count === 1) {
+        createRandomZombie(userAccount);
+      } else {
+        batchCreateZombies(count);
+      }
     });
 
-    levelupButton.addEventListener('click', () => {
-      getZombiesByOwner(userAccount).then(ids => {
-        if (ids.length === 0) { setStatus("No zombies to level up!", true); return; }
-        levelUp(ids[0]);
-      });
-    });
 
   </script>
 </body>

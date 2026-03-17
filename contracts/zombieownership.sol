@@ -35,4 +35,11 @@ contract ZombieOwnership is ZombieAttack, ERC721 {
       emit Approval(msg.sender, _approved, _tokenId);
     }
 
+  function burnZombie(uint256 _zombieId) external onlyOwnerOf(_zombieId) {
+    address owner = zombieToOwner[_zombieId];
+    ownerZombieCount[owner] = ownerZombieCount[owner].sub(1);
+    zombieToOwner[_zombieId] = address(0);
+    emit Transfer(owner, address(0), _zombieId);
+  }
+
 }

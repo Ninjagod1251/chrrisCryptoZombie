@@ -17,11 +17,11 @@ def test_create_zombie_emits_event(contract, alice):
     assert logs[0].name == ZOMBIE_NAME_1
 
 
-def test_no_two_zombies_same_owner(contract, alice):
-    """Second createRandomZombie from same address reverts."""
+def test_owner_can_create_multiple_zombies(contract, alice):
+    """Same owner can create multiple zombies — army mode."""
     contract.createRandomZombie(ZOMBIE_NAME_1, sender=alice)
-    with reverts():
-        contract.createRandomZombie(ZOMBIE_NAME_2, sender=alice)
+    contract.createRandomZombie(ZOMBIE_NAME_2, sender=alice)
+    assert contract.balanceOf(alice) == 2
 
 
 def test_zombie_starts_at_level_1(contract, alice):

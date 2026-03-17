@@ -37,15 +37,41 @@ contract ZombieFactory is Ownable {
   }
 
   function _generateRandomDna(string _str) private view returns (uint) {
-    uint rand = uint(keccak256(abi.encodePacked(_str)));
+    uint rand = uint(keccak256(abi.encodePacked(_str, now, ownerZombieCount[msg.sender])));
     return rand % dnaModulus;
   }
 
+  function _uint2str(uint _i) internal pure returns (string) {
+    if (_i == 0) return "0";
+    uint j = _i;
+    uint len;
+    while (j != 0) { len++; j /= 10; }
+    bytes memory bstr = new bytes(len);
+    uint k = len;
+    while (_i != 0) {
+      k--;
+      bstr[k] = byte(48 + uint8(_i % 10));
+      _i /= 10;
+    }
+    return string(bstr);
+  }
+
   function createRandomZombie(string _name) public {
-    require(ownerZombieCount[msg.sender] == 0);
     uint randDna = _generateRandomDna(_name);
     randDna = randDna - randDna % 100;
     _createZombie(_name, randDna);
+  }
+
+  function batchCreateZombies(uint _count) public {
+    require(_count > 0 && _count <= 20);
+    for (uint i = 0; i < _count; i++) {
+      string memory zombieName = string(abi.encodePacked(
+        "Zombie #", _uint2str(ownerZombieCount[msg.sender] + 1)
+      ));
+      uint randDna = _generateRandomDna(zombieName);
+      randDna = randDna - randDna % 100;
+      _createZombie(zombieName, randDna);
+    }
   }
 
 }
