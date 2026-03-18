@@ -66,17 +66,30 @@ Open `http://localhost:8080` — MetaMask network: `http://127.0.0.1:8545` Chain
 
 ## Batch Transactions & Gas Optimization
 
-Every Ethereum transaction pays a **21,000 gas base fee** before any contract logic runs.
-Sending 5 individual transactions means paying that fee 5 times.
+Every Ethereum transaction has two cost components:
 
-Batch create and batch level up avoid this — one transaction, one base fee, the loop runs inside the EVM:
+- **Base fee** — 21,000 gas, flat, paid just to submit any transaction to the network
+- **Execution fee** — gas for the actual computation inside the contract
+
+If you call `createZombie` 5 times separately, you pay the 21,000 base fee **5 times** — even though the logic is identical each time.
+
+[`batchCreateZombies`](contracts/zombiefactory.sol#L65) sends **one transaction**. The EVM runs the loop internally — 5 zombies created, 1 base fee paid:
 
 ```text
 gas saved = 21,000 × (count − 1)
 ```
 
-The UI fetches the live ETH/USD price and displays the dollar savings after every batch operation.
-This is the same economic principle behind L2 rollups: bundle N operations into 1 on-chain transaction.
+The UI fetches the live ETH/USD price and shows the dollar amount saved after every batch operation.
+
+### The Rollup Connection
+
+ZK rollups and Optimistic rollups use this same principle at a larger scale:
+
+1. Collect N user transactions **off-chain**
+2. Execute them off-chain
+3. Post **one** transaction to mainnet with a proof
+
+Your batch function does the same thing — move the repetition inside a single EVM call instead of repeating the round-trip. The savings formula is identical. The difference is rollups also compress calldata and use cryptographic proofs to verify correctness, allowing untrusted off-chain execution. Batch transactions keep everything on-chain but eliminate redundant base fees.
 
 **Code references:**
 
