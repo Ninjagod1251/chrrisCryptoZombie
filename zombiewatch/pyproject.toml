@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "zombiewatch"
+version = "0.1.0"
+dependencies = [
+    "silverback~=0.7",
+    "httpx",
+]
