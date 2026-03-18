@@ -1,0 +1,4 @@
+node:
+  ethereum:
+    local:
+      uri: http://hardhat:8545

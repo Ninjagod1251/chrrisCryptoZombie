@@ -17,6 +17,7 @@ contracts_folder: contracts
 
 test:
   folder: test
+  isolation: true
 
 networks:
   ethereum:

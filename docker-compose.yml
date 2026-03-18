@@ -1,0 +1,33 @@
+services:
+  hardhat:
+    image: node:18-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: npx hardhat node --hostname 0.0.0.0
+    ports:
+      - "8545:8545"
+    restart: unless-stopped
+
+  robohash:
+    image: ghcr.io/e1ven/robohash:latest
+    ports:
+      - "8888:8080"
+    restart: unless-stopped
+
+  zombiewatch:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -c "pip install silverback~=0.7 httpx eth-ape ape-solidity -q &&
+               cd zombiewatch &&
+               silverback run --network ethereum:local:node"
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS:-0x9E545E3C0baAB3E08CdfD552C960A1050f373042}
+    depends_on:
+      - hardhat
+    restart: unless-stopped

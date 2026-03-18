@@ -1,4 +1,7 @@
 node_modules/
 build/
 .env
-.DS_Store
+.DS_Store*.mp4
+zombiewatch/.env
+zombiewatch/__pycache__/
+zombiewatch/.silverback-sessions/
