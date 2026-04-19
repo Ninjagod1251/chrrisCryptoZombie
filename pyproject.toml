@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "cryptozombies"
+version = "0.1.0"
+description = "CryptoZombies smart contract project using Ape Framework"
+requires-python = ">=3.9"
+dependencies = [
+    "eth-ape>=0.8",
+    "ape-solidity",
+    "ape-hardhat",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-ape",
+]

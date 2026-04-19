@@ -5,12 +5,11 @@ plugins:
   - name: hardhat
 
 solidity:
-  version: 0.4.26
+  version: 0.8.31
 
 compilers:
   solidity:
     versions:
-      - 0.4.26
       - 0.8.31
 
 contracts_folder: contracts

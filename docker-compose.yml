@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   zombiewatch:
-    image: python:3.11-slim
+    image: python:3.11
     working_dir: /app
     volumes:
       - .:/app

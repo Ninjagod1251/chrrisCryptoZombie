@@ -1,7 +1,15 @@
 node_modules/
 build/
 .env
-.DS_Store*.mp4
+.DS_Store
+*.mp4
 zombiewatch/.env
 zombiewatch/__pycache__/
 zombiewatch/.silverback-sessions/
+advBlockchain/
+advBlockchain_new/
+artifacts/
+cache/
+__pycache__/
+.build/
+.claude/
