@@ -248,6 +248,9 @@
       color: white; padding: 8px 22px; border-radius: 8px; cursor: pointer;
       font-family: inherit; font-weight: bold; }
     #zk-prove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #zk-cheat-btn { background: #2d0a0a; border: 1px solid #ef444466; color: #f87171;
+      padding: 8px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; }
+    #zk-cheat-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #zk-status { margin-top: 14px; font-size: 0.82rem; color: #a78bfa; min-height: 20px; }
     /* Proof Log */
     #zk-log { margin-top: 18px; }
@@ -335,6 +338,7 @@
       <div class="zk-actions">
         <button id="zk-fetch-btn">&#x1F4E5; Fetch Zombie Level</button>
         <button id="zk-prove-btn">&#x26A1; Generate ZK Proof</button>
+        <button id="zk-cheat-btn">&#x1F608; Bad Actor (wrong secret)</button>
       </div>
       <div id="zk-status"></div>
 
@@ -1051,6 +1055,96 @@
         addStep('&#x274C;', `Error: ${e.message}`, '');
         console.error(e);
       } finally {
+        zkProveBtn.disabled = false;
+      }
+    });
+
+    // ── Bad Actor Demo ────────────────────────────────────────────────────────
+    document.getElementById('zk-cheat-btn').addEventListener('click', async () => {
+      const zombieId       = parseInt(document.getElementById('zk-zombie-id').value);
+      const realSecret     = parseInt(document.getElementById('zk-secret').value);
+      const zombieLevel    = parseInt(document.getElementById('zk-zombie-level').value);
+      const levelThreshold = parseInt(document.getElementById('zk-threshold').value);
+      const fakeSecret     = realSecret + 1; // attacker guesses wrong secret
+
+      const cheatBtn = document.getElementById('zk-cheat-btn');
+      cheatBtn.disabled = true;
+      zkProveBtn.disabled = true;
+
+      const logEl    = document.getElementById('zk-log');
+      const stepsEl  = document.getElementById('zk-log-steps');
+      const privTable = document.getElementById('zk-privacy-table');
+      const badgeRow  = document.getElementById('zk-badge-row');
+      logEl.style.display   = 'block';
+      privTable.style.display = 'none';
+      badgeRow.style.display  = 'none';
+      stepsEl.innerHTML = '';
+
+      const t0 = performance.now();
+      function addStep(icon, title, detail) {
+        const row = document.createElement('div');
+        row.className = 'zk-step';
+        row.innerHTML = `<span class="zk-step-icon">${icon}</span>
+          <span class="zk-step-body"><div class="zk-step-title">${title}</div>
+          ${detail ? `<div class="zk-step-detail">${detail}</div>` : ''}</span>
+          <span class="zk-step-time">+${((performance.now()-t0)/1000).toFixed(2)}s</span>`;
+        stepsEl.appendChild(row);
+      }
+
+      addStep('&#x1F608;', 'Bad actor attempting proof with WRONG secret',
+        `Using fakeSecret=${fakeSecret} instead of real secret — commitment will not match`);
+
+      try {
+        // Compute commitment using the REAL secret (this is what's registered on-chain)
+        const { buildPoseidon } = await import('https://esm.sh/circomlibjs@0.1.7');
+        const poseidon = await buildPoseidon();
+        const realBuf  = poseidon([BigInt(zombieId), BigInt(realSecret)]);
+        const realCommitment = poseidon.F.toObject(realBuf).toString();
+
+        // Attacker computes commitment with their fake secret
+        const fakeBuf  = poseidon([BigInt(zombieId), BigInt(fakeSecret)]);
+        const fakeCommitment = poseidon.F.toObject(fakeBuf).toString();
+
+        addStep('&#x26A0;&#xFE0F;', 'Commitments do NOT match',
+          `Real:  ${realCommitment.slice(0,20)}…<br>Fake:  ${fakeCommitment.slice(0,20)}…`);
+
+        addStep('&#x23F3;', 'Attempting to generate proof anyway…', 'Circuit will reject — Poseidon constraint fails');
+
+        const [wasmBuf, zkeyBuf] = await Promise.all([
+          fetch('circuits/zombie_ownership_js/zombie_ownership.wasm').then(r => r.arrayBuffer()),
+          fetch('circuits/zombie_ownership_final.zkey').then(r => r.arrayBuffer()),
+        ]);
+
+        let proof, publicSignals, errored = false;
+        try {
+          ({ proof, publicSignals } = await snarkjs.groth16.fullProve(
+            { zombieId, secret: fakeSecret, zombieLevel, commitment: realCommitment, levelThreshold },
+            { type: 'mem', data: new Uint8Array(wasmBuf) },
+            { type: 'mem', data: new Uint8Array(zkeyBuf) }
+          ));
+        } catch (e) {
+          errored = true;
+          addStep('&#x274C;', 'Witness generation FAILED — constraint unsatisfiable',
+            `Poseidon(zombieId, fakeSecret) ≠ commitment. The circuit rejected the inputs.`);
+        }
+
+        if (!errored) {
+          // Proof was generated but should fail verification
+          const vkey = await fetch('circuits/verification_key.json').then(r => r.json());
+          const valid = await snarkjs.groth16.verify(vkey, publicSignals, proof);
+          addStep(valid ? '&#x274C;' : '&#x274C;', 'Proof generated but verification FAILED',
+            `The verifier detected the commitment mismatch. Proof rejected.`);
+        }
+
+        document.getElementById('zk-final-badge').textContent = '❌ PROOF REJECTED — Bad actor caught';
+        document.getElementById('zk-final-badge').style.color = '#ef4444';
+        document.getElementById('zk-proof-json').textContent = 'No valid proof produced.';
+        badgeRow.style.display = 'block';
+
+      } catch(e) {
+        addStep('&#x274C;', `Error: ${e.message}`, '');
+      } finally {
+        cheatBtn.disabled = false;
         zkProveBtn.disabled = false;
       }
     });
