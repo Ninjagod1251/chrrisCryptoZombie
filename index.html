@@ -885,61 +885,26 @@
       zkResult.style.display = 'none';
 
       try {
-        // Step 1: compute commitment = Poseidon(zombieId, secret) using the witness calculator.
-        // We pass commitment=0 and let the WASM compute the real hash internally, then read
-        // it back from the witness at signal index 1 (the hasher output).
-        const wasmResp = await fetch('circuits/zombie_ownership_js/zombie_ownership.wasm');
-        const wasmBuf  = await wasmResp.arrayBuffer();
-
-        // Load the snarkjs witness calculator helper bundled with the compiled circuit
-        const genWitness = (await import('./circuits/zombie_ownership_js/generate_witness.js')).default
-          .catch?.(() => null);
-
-        // Fallback: use snarkjs WitnessCalculator directly
-        const { WitnessCalculator } = snarkjs;
+        // Compute commitment = Poseidon(zombieId, secret) via circomlibjs CDN (ESM)
         let commitment;
-        if (WitnessCalculator) {
-          const wc = await WitnessCalculator(new Uint8Array(wasmBuf));
-          // Pass 0 as commitment placeholder — we just want the hash output from witness
-          const w = await wc.calculateWitness({
-            zombieId: zombieId, secret: secret,
-            zombieLevel: zombieLevel, commitment: 0, levelThreshold: levelThreshold
-          }, false);
-          // w[1] is typically the first output/intermediate signal (hasher.out)
-          // Find the commitment by running fullProve with placeholder, reading publicSignals[0]
-          commitment = "0"; // will be updated below after proof
-        } else {
-          commitment = "0";
-        }
-
-        // Step 2: generate full proof. commitment is publicSignals[0] so it's self-consistent:
-        // the circuit checks hasher.out === commitment, and the proof system enforces this.
-        // For the demo we treat the user's (zombieId, secret) as the "registered" pair,
-        // so commitment = Poseidon(zombieId, secret). We compute it by running fullProve
-        // with a valid input and reading publicSignals[0] back.
-        //
-        // Two-pass approach: first pass uses a pre-computed commitment from generate_proof.js
-        // output (stored in circuits/public.json for demo), or we use circomlibjs via CDN.
-        let poseidonHash;
         try {
           const { buildPoseidon } = await import('https://esm.sh/circomlibjs@0.1.7');
           const poseidon = await buildPoseidon();
           const buf = poseidon([BigInt(zombieId), BigInt(secret)]);
-          poseidonHash = poseidon.F.toObject(buf).toString();
+          commitment = poseidon.F.toObject(buf).toString();
         } catch {
-          // CDN unavailable — fall back to cached proof from generate_proof.js run
+          // CDN unavailable — use cached public.json from last CLI run
           const pubResp = await fetch('circuits/public.json').catch(() => null);
-          if (pubResp) {
-            const pub = await pubResp.json();
-            poseidonHash = pub[0]; // use last-generated commitment as demo value
-            zkStatus.textContent = '⏳ (offline mode: using cached commitment) Generating proof…';
-          } else {
-            throw new Error('Could not compute Poseidon hash. Run: node scripts/zk/generate_proof.js');
-          }
+          if (!pubResp) throw new Error('No internet and no cached proof. Run: node scripts/zk/generate_proof.js first.');
+          const pub = await pubResp.json();
+          commitment = pub[0];
+          zkStatus.textContent = '⏳ (offline: using cached commitment) Generating proof…';
         }
 
-        commitment = poseidonHash;
         document.getElementById('zk-commitment').value = commitment.slice(0, 24) + '…';
+
+        const wasmResp = await fetch('circuits/zombie_ownership_js/zombie_ownership.wasm');
+        const wasmBuf  = await wasmResp.arrayBuffer();
 
         const zkeyResp = await fetch('circuits/zombie_ownership_final.zkey');
         const zkeyBuf  = await zkeyResp.arrayBuffer();
