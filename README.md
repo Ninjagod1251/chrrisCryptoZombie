@@ -19,6 +19,7 @@ Blockchain-powered zombie army on Ethereum. Built on CryptoZombies with producti
 | **Gas savings**   | Shows USD saved vs individual transactions (ZK rollup concept)   |
 | **Burn + Cemetery**| Burn (ERC721) zombies, cemetery reconstructed from on-chain Transfer events |
 | **zombieWatch bot**| Silverback bot sends Telegram alert on every `NewZombie` event |
+| **ZK Ownership Proof** | Prove you own a zombie without revealing which one — Groth16 circuit, in-browser |
 
 ## Quick Start
 
@@ -121,12 +122,84 @@ ape test
 
 40 tests covering creation, feeding, level up, combat, and burn.
 
+## ZK Ownership Proof
+
+This is the most advanced feature in the project. Here is what it does and how to explain it.
+
+### The idea in one sentence
+
+> "Prove you own a zombie that meets a level requirement — without revealing your address, your zombie ID, or any private information."
+
+### The real-world analogy
+
+Imagine a bouncer checking IDs. Normally they see your name, birthdate, address — everything on the card. A ZK proof is like a magic credential that only proves "this person is over 21" with zero other information revealed. Same concept here: the proof says "this person owns a level-2+ zombie" and nothing else leaks.
+
+### How it works (step by step)
+
+1. **You pick a secret number** (your private salt — like a password only you know)
+2. **The circuit computes** `Poseidon(zombieId, secret)` — a cryptographic hash called your *commitment*
+3. **You generate a proof** that says: *"I know a (zombieId, secret) pair such that their hash equals this commitment AND the zombie's level is ≥ threshold"*
+4. **Anyone can verify** the proof using only the commitment and threshold — no zombie ID, no address, no secret ever leaves your browser
+
+The commitment is what you'd register on-chain when you claim a zombie. Later you prove you know the preimage without revealing it.
+
+### What the circuit enforces
+
+```
+Private inputs (never revealed):  zombieId, secret, zombieLevel
+Public  inputs (visible to all):  commitment, levelThreshold
+
+Constraints:
+  Poseidon(zombieId, secret) == commitment   ← proves knowledge / ownership
+  zombieLevel >= levelThreshold              ← proves the zombie qualifies
+```
+
+Both constraints must hold simultaneously. If either fails, the proof is rejected.
+
+### Why this matters
+
+Normal smart contracts expose everything. Every call, every address, every token ID is public on-chain. ZK proofs let you do gated actions — enter a tournament, claim a badge, prove eligibility — without doxxing your wallet or revealing your strategy.
+
+### Toolchain
+
+| Tool | Role |
+|------|------|
+| [Circom 2.x](https://docs.circom.io) | Circuit language — defines the constraints |
+| [snarkjs](https://github.com/iden3/snarkjs) | Groth16 proof generation + verification |
+| [circomlibjs](https://github.com/iden3/circomlibjs) | Poseidon hash in JavaScript |
+| Groth16 | Proving scheme — constant-size proof (3 elliptic curve points) |
+| [ZombieVerifier.sol](contracts/ZombieVerifier.sol) | Auto-generated Solidity verifier — deployable on-chain |
+
+### Demo script (what to say to your class)
+
+> "Every transaction on Ethereum is public. Anyone can see your wallet, your NFTs, your history. ZK proofs flip that.
+>
+> Watch — I'm going to prove I own a zombie that's level 2 or higher. I'm not going to tell you which zombie. I'm not going to tell you my address. I'm just going to click this button.
+>
+> *[click Generate ZK Proof]*
+>
+> The proof generates in your browser in about 2 seconds. It's verified locally using the same math a smart contract would use. The green badge means the proof is cryptographically valid — nobody can fake it.
+>
+> The public output is just a hash and a number. The hash is a commitment I made when I registered my zombie. The number is the threshold I proved against. My zombie ID and my secret never left my machine.
+>
+> This is the same cryptography that zkSync Era uses to batch thousands of transactions and post one proof to mainnet instead of thousands of individual calls. We used it at both layers — the rollup layer for gas savings, and the application layer for privacy."
+
+### Files
+
+- [`circuits/zombie_ownership.circom`](circuits/zombie_ownership.circom) — the constraint system
+- [`contracts/ZombieVerifier.sol`](contracts/ZombieVerifier.sol) — on-chain verifier (auto-generated)
+- [`scripts/zk/generate_proof.js`](scripts/zk/generate_proof.js) — Node.js CLI proof generator
+- [`scripts/zk/setup.sh`](scripts/zk/setup.sh) — regenerate trusted setup from scratch
+
+---
+
 ## Milestones
 
 | # | Description | Status |
 |---|---|---|
 | M1 | Solidity 0.8 migration, security fixes, 40/40 tests, browser verified | ✅ |
-| M2 | — | — |
+| M2-ZK | ZK Ownership Proof — Groth16 circuit, browser proof generation, Solidity verifier | ✅ |
+| M2-FV | Formal Verification — Vyper rewrite + Certora/halmos specs | 🔜 |
 
 ## Stack
 
