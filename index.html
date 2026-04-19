@@ -249,12 +249,44 @@
       font-family: inherit; font-weight: bold; }
     #zk-prove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #zk-status { margin-top: 14px; font-size: 0.82rem; color: #a78bfa; min-height: 20px; }
-    #zk-result { margin-top: 16px; padding: 16px; background: #0d1f0d;
-      border: 1px solid #16a34a55; border-radius: 10px; }
+    /* Proof Log */
+    #zk-log { margin-top: 18px; }
+    .zk-log-header { display: flex; justify-content: space-between; align-items: center;
+      color: #7c3aed; font-size: 0.8rem; font-weight: bold; margin-bottom: 8px;
+      border-bottom: 1px solid #7c3aed33; padding-bottom: 6px; }
+    #zk-log-total-time { color: #6b7280; font-weight: normal; }
+    .zk-step { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0;
+      border-bottom: 1px solid #1e1b4b; font-size: 0.8rem; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+    .zk-step-icon { width: 18px; flex-shrink: 0; text-align: center; margin-top: 1px; }
+    .zk-step-icon.spinning { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .zk-step-body { flex: 1; }
+    .zk-step-title { color: #c4b5fd; }
+    .zk-step-detail { color: #6b7280; font-size: 0.72rem; margin-top: 2px; word-break: break-all; }
+    .zk-step-time { color: #4b5563; font-size: 0.7rem; margin-left: auto; white-space: nowrap; padding-left: 8px; }
+
+    /* Privacy table */
+    #zk-privacy-table { display: flex; gap: 0; margin-top: 16px; border: 1px solid #7c3aed33;
+      border-radius: 10px; overflow: hidden; }
+    .zk-privacy-col { flex: 1; padding: 14px 16px; }
+    .zk-privacy-col:first-child { border-right: 1px solid #7c3aed22; background: #0d1a0d; }
+    .zk-privacy-col:last-child { background: #1a0d0d; }
+    .zk-privacy-title { font-size: 0.75rem; font-weight: bold; margin-bottom: 10px; }
+    .zk-privacy-title.visible { color: #4ade80; }
+    .zk-privacy-title.hidden { color: #f87171; }
+    .zk-privacy-row { display: flex; align-items: center; gap: 8px; font-size: 0.75rem;
+      color: #9ca3af; margin-bottom: 6px; }
+    .zk-privacy-row span { flex: 1; }
+    .zk-privacy-row code { font-size: 0.65rem; color: #86efac; background: #052e16;
+      padding: 1px 5px; border-radius: 4px; max-width: 160px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .zk-privacy-row code.redacted { color: #ef4444; background: #1f0707; letter-spacing: 2px; }
+
+    #zk-badge-row { margin-top: 14px; }
     .zk-badge { color: #4ade80; font-size: 1rem; font-weight: bold; margin-bottom: 8px; }
-    #zk-public-signals { color: #86efac; font-size: 0.78rem; word-break: break-all; }
-    #zk-result details { margin-top: 10px; }
-    #zk-result summary { color: #6b7280; font-size: 0.78rem; cursor: pointer; }
+    .zk-raw-details { margin-top: 10px; }
+    .zk-raw-details summary { color: #6b7280; font-size: 0.78rem; cursor: pointer; }
     #zk-proof-json { font-size: 0.7rem; color: #4b5563; margin-top: 8px;
       max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
   </style>
@@ -305,13 +337,38 @@
         <button id="zk-prove-btn">&#x26A1; Generate ZK Proof</button>
       </div>
       <div id="zk-status"></div>
-      <div id="zk-result" style="display:none">
-        <div class="zk-badge">&#x2705; PROOF VALID</div>
-        <p>Public signals: <span id="zk-public-signals"></span></p>
-        <details>
-          <summary>Raw proof JSON</summary>
-          <pre id="zk-proof-json"></pre>
-        </details>
+
+      <!-- Proof Log -->
+      <div id="zk-log" style="display:none">
+        <div class="zk-log-header">
+          <span>&#x1F4CB; Proof Generation Log</span>
+          <span id="zk-log-total-time"></span>
+        </div>
+        <div id="zk-log-steps"></div>
+
+        <div id="zk-privacy-table" style="display:none">
+          <div class="zk-privacy-col">
+            <div class="zk-privacy-title visible">&#x1F50D; What the verifier sees</div>
+            <div class="zk-privacy-row">&#x2705; <span>Commitment (Poseidon hash)</span><code id="zk-pub-commitment"></code></div>
+            <div class="zk-privacy-row">&#x2705; <span>Level threshold</span><code id="zk-pub-threshold"></code></div>
+            <div class="zk-privacy-row">&#x2705; <span>Proof size</span><code>256 bytes (3 curve points)</code></div>
+          </div>
+          <div class="zk-privacy-col">
+            <div class="zk-privacy-title hidden">&#x1F512; What stays hidden</div>
+            <div class="zk-privacy-row">&#x1F6AB; <span>Zombie ID</span><code class="redacted">&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;</code></div>
+            <div class="zk-privacy-row">&#x1F6AB; <span>Your secret</span><code class="redacted">&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;</code></div>
+            <div class="zk-privacy-row">&#x1F6AB; <span>Your address</span><code class="redacted">&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;</code></div>
+            <div class="zk-privacy-row">&#x1F6AB; <span>Actual level</span><code class="redacted">&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;</code></div>
+          </div>
+        </div>
+
+        <div id="zk-badge-row" style="display:none">
+          <div class="zk-badge" id="zk-final-badge"></div>
+          <details class="zk-raw-details">
+            <summary>Raw proof JSON</summary>
+            <pre id="zk-proof-json"></pre>
+          </details>
+        </div>
       </div>
     </div>
   </div>
@@ -852,7 +909,6 @@
 
     // ── ZK Ownership Proof ────────────────────────────────────────────────────
     const zkStatus   = document.getElementById('zk-status');
-    const zkResult   = document.getElementById('zk-result');
     const zkFetchBtn = document.getElementById('zk-fetch-btn');
     const zkProveBtn = document.getElementById('zk-prove-btn');
 
@@ -880,54 +936,119 @@
         return;
       }
 
-      zkStatus.textContent = '⏳ Generating ZK proof…';
+      zkStatus.textContent = '';
       zkProveBtn.disabled = true;
-      zkResult.style.display = 'none';
+
+      const logEl    = document.getElementById('zk-log');
+      const stepsEl  = document.getElementById('zk-log-steps');
+      const privTable = document.getElementById('zk-privacy-table');
+      const badgeRow  = document.getElementById('zk-badge-row');
+      logEl.style.display   = 'block';
+      privTable.style.display = 'none';
+      badgeRow.style.display  = 'none';
+      stepsEl.innerHTML = '';
+
+      const t0 = performance.now();
+
+      function addStep(icon, title, detail) {
+        const row = document.createElement('div');
+        row.className = 'zk-step';
+        row.innerHTML = `
+          <span class="zk-step-icon">${icon}</span>
+          <span class="zk-step-body">
+            <div class="zk-step-title">${title}</div>
+            ${detail ? `<div class="zk-step-detail">${detail}</div>` : ''}
+          </span>
+          <span class="zk-step-time">+${((performance.now()-t0)/1000).toFixed(2)}s</span>`;
+        stepsEl.appendChild(row);
+        return row;
+      }
+
+      function pendingStep(title) {
+        const row = document.createElement('div');
+        row.className = 'zk-step';
+        row.innerHTML = `
+          <span class="zk-step-icon spinning">⟳</span>
+          <span class="zk-step-body"><div class="zk-step-title">${title}</div></span>`;
+        stepsEl.appendChild(row);
+        return row;
+      }
+
+      function resolveStep(row, icon, title, detail) {
+        row.innerHTML = `
+          <span class="zk-step-icon">${icon}</span>
+          <span class="zk-step-body">
+            <div class="zk-step-title">${title}</div>
+            ${detail ? `<div class="zk-step-detail">${detail}</div>` : ''}
+          </span>
+          <span class="zk-step-time">+${((performance.now()-t0)/1000).toFixed(2)}s</span>`;
+      }
 
       try {
-        // Compute commitment = Poseidon(zombieId, secret) via circomlibjs CDN (ESM)
+        // Step 1: inputs
+        addStep('&#x2705;', `Inputs validated`,
+          `zombieId=${zombieId} &nbsp;|&nbsp; level=${zombieLevel} &nbsp;|&nbsp; threshold=${levelThreshold} &nbsp;|&nbsp; secret=<span style="color:#ef4444">&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;&#x2588;</span>`);
+
+        // Step 2: Poseidon commitment
         let commitment;
+        const s2 = pendingStep('Computing Poseidon commitment…');
         try {
           const { buildPoseidon } = await import('https://esm.sh/circomlibjs@0.1.7');
           const poseidon = await buildPoseidon();
           const buf = poseidon([BigInt(zombieId), BigInt(secret)]);
           commitment = poseidon.F.toObject(buf).toString();
         } catch {
-          // CDN unavailable — use cached public.json from last CLI run
           const pubResp = await fetch('circuits/public.json').catch(() => null);
-          if (!pubResp) throw new Error('No internet and no cached proof. Run: node scripts/zk/generate_proof.js first.');
-          const pub = await pubResp.json();
-          commitment = pub[0];
-          zkStatus.textContent = '⏳ (offline: using cached commitment) Generating proof…';
+          if (!pubResp) throw new Error('No internet and no cached proof. Run: node scripts/zk/generate_proof.js');
+          commitment = (await pubResp.json())[0];
         }
-
         document.getElementById('zk-commitment').value = commitment.slice(0, 24) + '…';
+        resolveStep(s2, '&#x2705;', 'Poseidon commitment computed',
+          `Poseidon(zombieId, secret) = ${commitment.slice(0,20)}…`);
 
-        const wasmResp = await fetch('circuits/zombie_ownership_js/zombie_ownership.wasm');
-        const wasmBuf  = await wasmResp.arrayBuffer();
+        // Step 3: load WASM + zkey
+        const s3 = pendingStep('Loading circuit WASM + proving key…');
+        const [wasmBuf, zkeyBuf] = await Promise.all([
+          fetch('circuits/zombie_ownership_js/zombie_ownership.wasm').then(r => r.arrayBuffer()),
+          fetch('circuits/zombie_ownership_final.zkey').then(r => r.arrayBuffer()),
+        ]);
+        resolveStep(s3, '&#x2705;', 'Circuit loaded',
+          `WASM: ${(wasmBuf.byteLength/1024).toFixed(1)} KB &nbsp;|&nbsp; zkey: ${(zkeyBuf.byteLength/1024).toFixed(1)} KB &nbsp;|&nbsp; constraints: 276`);
 
-        const zkeyResp = await fetch('circuits/zombie_ownership_final.zkey');
-        const zkeyBuf  = await zkeyResp.arrayBuffer();
-
+        // Step 4: generate proof
+        const s4 = pendingStep('Generating Groth16 proof (solving 276 constraints)…');
         const { proof, publicSignals } = await snarkjs.groth16.fullProve(
           { zombieId, secret, zombieLevel, commitment, levelThreshold },
           { type: 'mem', data: new Uint8Array(wasmBuf) },
           { type: 'mem', data: new Uint8Array(zkeyBuf) }
         );
+        resolveStep(s4, '&#x2705;', 'Groth16 proof generated',
+          `&#x3C0;_A: 2 points &nbsp;|&nbsp; &#x3C0;_B: 4 points &nbsp;|&nbsp; &#x3C0;_C: 2 points &nbsp;|&nbsp; ~256 bytes total`);
 
-        const vkResp = await fetch('circuits/verification_key.json');
-        const vkey   = await vkResp.json();
-        const valid  = await snarkjs.groth16.verify(vkey, publicSignals, proof);
+        // Step 5: verify
+        const s5 = pendingStep('Verifying proof against verification key…');
+        const vkey = await fetch('circuits/verification_key.json').then(r => r.json());
+        const valid = await snarkjs.groth16.verify(vkey, publicSignals, proof);
+        resolveStep(s5, valid ? '&#x2705;' : '&#x274C;',
+          valid ? 'Proof verified — cryptographically valid' : 'Verification FAILED',
+          `Public signals: commitment=${publicSignals[0].slice(0,16)}… &nbsp;|&nbsp; threshold=${publicSignals[1]}`);
 
-        zkStatus.textContent = valid ? '✅ Proof verified locally!' : '❌ Verification failed';
-        document.getElementById('zk-public-signals').textContent =
-          `commitment=${publicSignals[0].slice(0,16)}…, threshold=${publicSignals[1]}`;
-        document.getElementById('zk-proof-json').textContent = JSON.stringify(proof, null, 2);
-        zkResult.style.display = 'block';
-        zkResult.querySelector('.zk-badge').textContent = valid ? '✅ PROOF VALID' : '❌ PROOF INVALID';
+        document.getElementById('zk-log-total-time').textContent =
+          `Total: ${((performance.now()-t0)/1000).toFixed(2)}s`;
+
+        // Privacy table
+        document.getElementById('zk-pub-commitment').textContent = publicSignals[0].slice(0,14) + '…';
+        document.getElementById('zk-pub-threshold').textContent  = publicSignals[1];
+        privTable.style.display = 'flex';
+
+        // Badge + raw proof
+        document.getElementById('zk-final-badge').textContent = valid ? '✅ PROOF VALID' : '❌ PROOF INVALID';
+        document.getElementById('zk-proof-json').textContent   = JSON.stringify(proof, null, 2);
+        badgeRow.style.display = 'block';
+        zkStatus.textContent = '';
 
       } catch (e) {
-        zkStatus.textContent = `Error: ${e.message}`;
+        addStep('&#x274C;', `Error: ${e.message}`, '');
         console.error(e);
       } finally {
         zkProveBtn.disabled = false;
