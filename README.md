@@ -121,10 +121,17 @@ ape test
 
 40 tests covering creation, feeding, level up, combat, and burn.
 
+## Milestones
+
+| # | Description | Status |
+|---|---|---|
+| M1 | Solidity 0.8 migration, security fixes, 40/40 tests, browser verified | ✅ |
+| M2 | — | — |
+
 ## Stack
 
-- Solidity 0.4.25 — ERC721 contracts
+- Solidity 0.8.31 — ERC721 contracts (migrated from 0.4.25)
 - Hardhat — local node + deployment
-- Ape Framework + pytest — Python test suite
+- Ape Framework + pytest — Python test suite (40 tests)
 - Silverback — on-chain event bot
 - Docker Compose — persistent dev environment
