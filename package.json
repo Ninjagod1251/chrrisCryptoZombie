@@ -13,7 +13,10 @@
   "license": "ISC",
   "dependencies": {
     "browser-sync": "^2.27.7",
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
     "openzeppelin-solidity": "^4.4.1",
+    "snarkjs": "^0.7.6",
     "truffle-hdwallet-provider": "^1.0.17",
     "web3": "^1.6.1"
   },

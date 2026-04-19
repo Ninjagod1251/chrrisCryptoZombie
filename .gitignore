@@ -13,3 +13,7 @@ cache/
 __pycache__/
 .build/
 .claude/
+
+# ZK circuit trusted setup artifacts (too large for git, regenerate with scripts/zk/setup.sh)
+circuits/pot12_*.ptau
+circuits/*_0000.zkey

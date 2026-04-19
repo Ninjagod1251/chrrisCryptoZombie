@@ -10,6 +10,7 @@
     src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
   <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.2.7-rc.0/web3.min.js"></script>
   <script language="javascript" type="text/javascript" src="cryptozombies_abi.js"></script>
+  <script src="node_modules/snarkjs/build/snarkjs.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -223,6 +224,39 @@
     .confirm-transfer-btn:hover { background: #38bdf8; color: #0a0a0f; }
 
     #empty-state { color: #444; text-align: center; padding: 60px 0; font-size: 1.1rem; }
+
+    /* ZK Proof Panel */
+    #zk-panel {
+      margin-top: 48px;
+      background: linear-gradient(135deg, #0f0820, #150d2e);
+      border: 1px solid #7c3aed55;
+      border-radius: 16px;
+      padding: 28px 32px;
+    }
+    #zk-panel h2 { color: #a78bfa; font-size: 1.2rem; margin-bottom: 6px; }
+    .zk-subtitle { color: #6b7280; font-size: 0.82rem; margin-bottom: 20px; }
+    .zk-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+    .zk-row label { display: flex; flex-direction: column; gap: 4px; font-size: 0.75rem;
+      color: #9ca3af; flex: 1; min-width: 160px; }
+    .zk-row input { background: #1e1b4b; border: 1px solid #4c1d9566; border-radius: 6px;
+      color: #c4b5fd; padding: 6px 10px; font-family: inherit; font-size: 0.85rem; }
+    .zk-row input[readonly] { opacity: 0.7; }
+    .zk-actions { display: flex; gap: 12px; margin-top: 6px; }
+    #zk-fetch-btn { background: #1e1b4b; border: 1px solid #7c3aed; color: #a78bfa;
+      padding: 8px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; }
+    #zk-prove-btn { background: linear-gradient(90deg, #7c3aed, #4f46e5); border: none;
+      color: white; padding: 8px 22px; border-radius: 8px; cursor: pointer;
+      font-family: inherit; font-weight: bold; }
+    #zk-prove-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #zk-status { margin-top: 14px; font-size: 0.82rem; color: #a78bfa; min-height: 20px; }
+    #zk-result { margin-top: 16px; padding: 16px; background: #0d1f0d;
+      border: 1px solid #16a34a55; border-radius: 10px; }
+    .zk-badge { color: #4ade80; font-size: 1rem; font-weight: bold; margin-bottom: 8px; }
+    #zk-public-signals { color: #86efac; font-size: 0.78rem; word-break: break-all; }
+    #zk-result details { margin-top: 10px; }
+    #zk-result summary { color: #6b7280; font-size: 0.78rem; cursor: pointer; }
+    #zk-proof-json { font-size: 0.7rem; color: #4b5563; margin-top: 8px;
+      max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
   </style>
 </head>
 
@@ -251,6 +285,34 @@
     <div id="cemetery-section" style="display:none">
       <h2 id="cemetery-title">&#x26B0; Cemetery</h2>
       <div id="cemetery-grid"></div>
+    </div>
+
+    <!-- ZK Ownership Proof Panel -->
+    <div id="zk-panel">
+      <h2>&#x1F510; ZK Ownership Proof</h2>
+      <p class="zk-subtitle">Prove you own a zombie meeting a level threshold — without revealing which zombie or your address.</p>
+      <div class="zk-row">
+        <label>Zombie ID <input type="number" id="zk-zombie-id" min="0" value="0" /></label>
+        <label>Secret (your private salt) <input type="number" id="zk-secret" value="12345678" /></label>
+        <label>Level Threshold <input type="number" id="zk-threshold" min="1" value="2" /></label>
+      </div>
+      <div class="zk-row">
+        <label>Zombie Level (from contract) <input type="number" id="zk-zombie-level" min="0" value="1" readonly /></label>
+        <label style="flex:2">Commitment (Poseidon hash) <input type="text" id="zk-commitment" readonly placeholder="auto-computed" /></label>
+      </div>
+      <div class="zk-actions">
+        <button id="zk-fetch-btn">&#x1F4E5; Fetch Zombie Level</button>
+        <button id="zk-prove-btn">&#x26A1; Generate ZK Proof</button>
+      </div>
+      <div id="zk-status"></div>
+      <div id="zk-result" style="display:none">
+        <div class="zk-badge">&#x2705; PROOF VALID</div>
+        <p>Public signals: <span id="zk-public-signals"></span></p>
+        <details>
+          <summary>Raw proof JSON</summary>
+          <pre id="zk-proof-json"></pre>
+        </details>
+      </div>
     </div>
   </div>
 
@@ -787,6 +849,125 @@
 
     ethereum.on('accountsChanged', () => window.location.reload());
     ethereum.on('chainChanged',    () => window.location.reload());
+
+    // ── ZK Ownership Proof ────────────────────────────────────────────────────
+    const zkStatus   = document.getElementById('zk-status');
+    const zkResult   = document.getElementById('zk-result');
+    const zkFetchBtn = document.getElementById('zk-fetch-btn');
+    const zkProveBtn = document.getElementById('zk-prove-btn');
+
+    zkFetchBtn.addEventListener('click', async () => {
+      const zombieId = parseInt(document.getElementById('zk-zombie-id').value);
+      if (!cryptoZombies) { zkStatus.textContent = 'Connect MetaMask first.'; return; }
+      try {
+        zkStatus.textContent = 'Fetching zombie...';
+        const zombie = await cryptoZombies.methods.zombies(zombieId).call();
+        document.getElementById('zk-zombie-level').value = zombie.level;
+        zkStatus.textContent = `Zombie #${zombieId}: "${zombie.name}", level ${zombie.level}`;
+      } catch (e) {
+        zkStatus.textContent = `Error: ${e.message}`;
+      }
+    });
+
+    zkProveBtn.addEventListener('click', async () => {
+      const zombieId       = parseInt(document.getElementById('zk-zombie-id').value);
+      const secret         = parseInt(document.getElementById('zk-secret').value);
+      const zombieLevel    = parseInt(document.getElementById('zk-zombie-level').value);
+      const levelThreshold = parseInt(document.getElementById('zk-threshold').value);
+
+      if (zombieLevel < levelThreshold) {
+        zkStatus.textContent = `Zombie level ${zombieLevel} < threshold ${levelThreshold}. Level up first!`;
+        return;
+      }
+
+      zkStatus.textContent = '⏳ Generating ZK proof…';
+      zkProveBtn.disabled = true;
+      zkResult.style.display = 'none';
+
+      try {
+        // Step 1: compute commitment = Poseidon(zombieId, secret) using the witness calculator.
+        // We pass commitment=0 and let the WASM compute the real hash internally, then read
+        // it back from the witness at signal index 1 (the hasher output).
+        const wasmResp = await fetch('circuits/zombie_ownership_js/zombie_ownership.wasm');
+        const wasmBuf  = await wasmResp.arrayBuffer();
+
+        // Load the snarkjs witness calculator helper bundled with the compiled circuit
+        const genWitness = (await import('./circuits/zombie_ownership_js/generate_witness.js')).default
+          .catch?.(() => null);
+
+        // Fallback: use snarkjs WitnessCalculator directly
+        const { WitnessCalculator } = snarkjs;
+        let commitment;
+        if (WitnessCalculator) {
+          const wc = await WitnessCalculator(new Uint8Array(wasmBuf));
+          // Pass 0 as commitment placeholder — we just want the hash output from witness
+          const w = await wc.calculateWitness({
+            zombieId: zombieId, secret: secret,
+            zombieLevel: zombieLevel, commitment: 0, levelThreshold: levelThreshold
+          }, false);
+          // w[1] is typically the first output/intermediate signal (hasher.out)
+          // Find the commitment by running fullProve with placeholder, reading publicSignals[0]
+          commitment = "0"; // will be updated below after proof
+        } else {
+          commitment = "0";
+        }
+
+        // Step 2: generate full proof. commitment is publicSignals[0] so it's self-consistent:
+        // the circuit checks hasher.out === commitment, and the proof system enforces this.
+        // For the demo we treat the user's (zombieId, secret) as the "registered" pair,
+        // so commitment = Poseidon(zombieId, secret). We compute it by running fullProve
+        // with a valid input and reading publicSignals[0] back.
+        //
+        // Two-pass approach: first pass uses a pre-computed commitment from generate_proof.js
+        // output (stored in circuits/public.json for demo), or we use circomlibjs via CDN.
+        let poseidonHash;
+        try {
+          const { buildPoseidon } = await import('https://esm.sh/circomlibjs@0.1.7');
+          const poseidon = await buildPoseidon();
+          const buf = poseidon([BigInt(zombieId), BigInt(secret)]);
+          poseidonHash = poseidon.F.toObject(buf).toString();
+        } catch {
+          // CDN unavailable — fall back to cached proof from generate_proof.js run
+          const pubResp = await fetch('circuits/public.json').catch(() => null);
+          if (pubResp) {
+            const pub = await pubResp.json();
+            poseidonHash = pub[0]; // use last-generated commitment as demo value
+            zkStatus.textContent = '⏳ (offline mode: using cached commitment) Generating proof…';
+          } else {
+            throw new Error('Could not compute Poseidon hash. Run: node scripts/zk/generate_proof.js');
+          }
+        }
+
+        commitment = poseidonHash;
+        document.getElementById('zk-commitment').value = commitment.slice(0, 24) + '…';
+
+        const zkeyResp = await fetch('circuits/zombie_ownership_final.zkey');
+        const zkeyBuf  = await zkeyResp.arrayBuffer();
+
+        const { proof, publicSignals } = await snarkjs.groth16.fullProve(
+          { zombieId, secret, zombieLevel, commitment, levelThreshold },
+          { type: 'mem', data: new Uint8Array(wasmBuf) },
+          { type: 'mem', data: new Uint8Array(zkeyBuf) }
+        );
+
+        const vkResp = await fetch('circuits/verification_key.json');
+        const vkey   = await vkResp.json();
+        const valid  = await snarkjs.groth16.verify(vkey, publicSignals, proof);
+
+        zkStatus.textContent = valid ? '✅ Proof verified locally!' : '❌ Verification failed';
+        document.getElementById('zk-public-signals').textContent =
+          `commitment=${publicSignals[0].slice(0,16)}…, threshold=${publicSignals[1]}`;
+        document.getElementById('zk-proof-json').textContent = JSON.stringify(proof, null, 2);
+        zkResult.style.display = 'block';
+        zkResult.querySelector('.zk-badge').textContent = valid ? '✅ PROOF VALID' : '❌ PROOF INVALID';
+
+      } catch (e) {
+        zkStatus.textContent = `Error: ${e.message}`;
+        console.error(e);
+      } finally {
+        zkProveBtn.disabled = false;
+      }
+    });
 
     showZombieButton.addEventListener('click', () => {
       getZombiesByOwner(userAccount).then(displayZombies);
